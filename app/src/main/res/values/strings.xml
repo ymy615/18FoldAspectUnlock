@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">画幅切换解锁</string>
+    <string name="module_description">扩展小米折叠屏系统的应用画幅切换支持范围。</string>
+    <string-array name="xposed_scope">
+        <item>android</item>
+    </string-array>
+</resources>

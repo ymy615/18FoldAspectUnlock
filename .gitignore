@@ -1,0 +1,22 @@
+# Private signing material and generated files
+/.local/
+/build/
+/dist/
+*.jks
+*.keystore
+*.p12
+*.password
+*.class
+
+# Local phone extracts and investigations
+/artifacts/
+/analysis/
+/diagnostics/
+/evidence/
+/tools/
+
+# Downloaded compile-only dependency
+/libs/*.jar
+/libs/*.tmp
+Thumbs.db
+.DS_Store

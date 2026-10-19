@@ -1,0 +1,9 @@
+Dependency: de.robv.android.xposed:api:82
+Publisher: rovo89 / Xposed
+Source: https://api.xposed.info/de/robv/android/xposed/api/82/api-82.jar
+POM: https://api.xposed.info/de/robv/android/xposed/api/82/api-82.pom
+License: Apache License 2.0 (declared in the publisher's POM)
+SHA-256: f48c635f1c7469fdec0e00ad2ea0b7a6b2f5b55065784a35b7ca3a84615e8e25
+
+This JAR is a compile-time reference only. The build script never embeds its
+classes in the APK; the installed Xposed/LSPosed framework supplies them.
