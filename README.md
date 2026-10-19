@@ -2,13 +2,9 @@
 
 为 **Xiaomi 18 Fold** 制作的 LSPosed 模块，扩展控制中心原有“画幅切换”的应用支持范围。当前版本 **0.1.0 测试版**。
 
-## 下载与安装
+[版本发布页](https://github.com/ymy615/18FoldAspectUnlock/releases/tag/v0.1.0) · [全部发布记录](https://github.com/ymy615/18FoldAspectUnlock/releases)
 
-**[点击这里直接下载 APK：FoldAspectUnlock-0.1.0.apk](https://github.com/ymy615/18FoldAspectUnlock/releases/download/v0.1.0/FoldAspectUnlock-0.1.0.apk)**
-
-[版本说明](https://github.com/ymy615/18FoldAspectUnlock/releases/tag/v0.1.0) · [SHA-256 校验文件](https://github.com/ymy615/18FoldAspectUnlock/releases/download/v0.1.0/FoldAspectUnlock-0.1.0.apk.sha256) · [全部发布记录](https://github.com/ymy615/18FoldAspectUnlock/releases)
-
-下载入口直接指向 APK 文件，无需等待发布页底部的 Assets 列表加载。当前版本仍为测试版，请先核对下面的系统适配范围。
+在仓库首页右侧 **Releases** 点击 **v0.1.0**，进入版本页面后，在 **Assets** 中下载 `FoldAspectUnlock-0.1.0.apk`。
 
 ## 支持范围
 
@@ -24,7 +20,7 @@
 
 ## 安装与使用
 
-1. [直接下载 APK](https://github.com/ymy615/18FoldAspectUnlock/releases/download/v0.1.0/FoldAspectUnlock-0.1.0.apk) 并安装。
+1. 从仓库右侧 **Releases → v0.1.0 → Assets** 下载并安装 APK。
 2. 打开 LSPosed，在模块列表中启用 **画幅切换解锁**。
 3. 作用域只勾选 **系统框架（android）**，不需要逐个勾选应用。
 4. **完整重启手机**。
