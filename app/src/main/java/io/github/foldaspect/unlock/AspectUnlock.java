@@ -29,9 +29,15 @@ public final class AspectUnlock implements IXposedHookLoadPackage {
                 // All targets must exist with their exact inspected signatures before installing any hook.
                 Class<?> service = Class.forName("com.android.server.wm.MiuiSizeCompatService", false, load.classLoader);
                 Class<?> utils = Class.forName("com.android.server.wm.BoundsCompatUtils", false, load.classLoader);
+                Class<?> activityTaskManager = Class.forName("com.android.server.wm.ActivityTaskManagerService", false, load.classLoader);
+                Class<?> boundsController = Class.forName("com.android.server.wm.BoundsCompatController", false, load.classLoader);
                 Method disabled = booleanMethod(service, "isWideFoldDisabledPackage", String.class);
                 Method fullscreen = booleanMethod(service, "shouldUseFullscreenBypassInternal", String.class);
                 Method systemApp = booleanMethod(utils, "isWideFoldSystemApp", ApplicationInfo.class);
+                Method innerDisplay = booleanMethod(service, "isInnerCompatDisplay", activityTaskManager);
+                Method hideStatusBar = booleanMethod(boundsController, "hideStatusBarInSizeCompat");
+                StatusBarInsetFix statusInsets = new StatusBarInsetFix(load.classLoader);
+                StatusBarAppearance statusAppearance = new StatusBarAppearance(load.classLoader);
 
                 applied.add(XposedBridge.hookMethod(disabled, new XC_MethodHook() {
                     @Override protected void beforeHookedMethod(MethodHookParam p) {
@@ -51,8 +57,19 @@ public final class AspectUnlock implements IXposedHookLoadPackage {
                         }
                     }
                 }));
+                // The native fold configuration pass clears activity/process compat state when
+                // the inner display is ineligible. Never write the shared per-app ratio or the
+                // task's runtime-fullscreen flag: both must survive for the next outer-screen use.
+                applied.add(XposedBridge.hookMethod(innerDisplay, returnFalse()));
+                // Remove only Xiaomi's size-compat forced hiding. App-requested immersive mode
+                // and ordinary status-bar/insets policy still run without modification.
+                applied.add(XposedBridge.hookMethod(hideStatusBar, returnFalse()));
+                applied.add(XposedBridge.hookMethod(statusInsets.target, statusInsets));
+                applied.add(XposedBridge.hookMethod(statusAppearance.opacityTarget, statusAppearance));
+                applied.add(XposedBridge.hookMethod(statusAppearance.appearanceTarget, statusAppearance));
+                applied.add(XposedBridge.hookMethod(statusAppearance.letterboxTarget, statusAppearance.letterboxCallback));
                 installed = true;
-                XposedBridge.log(TAG + "ACTIVE 3/3 policy hooks; build=" + Build.VERSION.INCREMENTAL);
+                XposedBridge.log(TAG + "ACTIVE 9/9 hooks; inner=default; outer=preserved; statusBar=semi-transparent; insets=corrected; build=" + Build.VERSION.INCREMENTAL);
             } catch (Throwable failure) {
                 for (XC_MethodHook.Unhook hook : applied) {
                     try { hook.unhook(); } catch (Throwable ignored) {}
@@ -61,6 +78,14 @@ public final class AspectUnlock implements IXposedHookLoadPackage {
                 XposedBridge.log(failure);
             }
         }
+    }
+
+    private static XC_MethodHook returnFalse() {
+        return new XC_MethodHook() {
+            @Override protected void beforeHookedMethod(MethodHookParam param) {
+                param.setResult(false);
+            }
+        };
     }
 
     private static Method booleanMethod(Class<?> owner, String name, Class<?>... args) throws Exception {

@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">画幅切换解锁</string>
-    <string name="module_description">扩展小米折叠屏系统的应用画幅切换支持范围。</string>
+    <string name="module_description">扩展外屏画幅切换，展开恢复默认全屏，改善状态栏边距与黑边上的文字显示。</string>
     <string-array name="xposed_scope">
         <item>android</item>
+        <item>com.android.systemui</item>
     </string-array>
 </resources>
