@@ -3,7 +3,7 @@ package io.github.foldaspect.unlock;
 /** Decisions shared by the hook and the offline regression checks. */
 public final class UnlockPolicy {
     public static final String TARGET_DEVICE = "lhasa";
-    public static final String TARGET_BUILD = "OS4.0.21.0.XPNCNXM";
+    public static final String TARGET_BUILD = "OS4.0.26.0.XPNCNXM";
     private UnlockPolicy() {}
 
     public static boolean supports(String device, int sdk, String incremental) {

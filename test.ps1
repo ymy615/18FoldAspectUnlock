@@ -27,7 +27,9 @@ $hostSources = @(
     (Join-Path $PSScriptRoot 'app\src\main\java\io\github\foldaspect\unlock\UnlockPolicy.java'),
     (Join-Path $PSScriptRoot 'app\src\main\java\io\github\foldaspect\unlock\StatusBarInsetFix.java'),
     (Join-Path $PSScriptRoot 'app\src\main\java\io\github\foldaspect\unlock\StatusBarAppearance.java'),
-    (Join-Path $PSScriptRoot 'app\src\main\java\io\github\foldaspect\unlock\StatusBarStylePolicy.java')
+    (Join-Path $PSScriptRoot 'app\src\main\java\io\github\foldaspect\unlock\StatusBarStylePolicy.java'),
+    (Join-Path $PSScriptRoot 'app\src\main\java\io\github\foldaspect\unlock\WidthModePolicy.java'),
+    (Join-Path $PSScriptRoot 'app\src\main\java\io\github\foldaspect\unlock\WidthModeController.java')
 )
 $hostSources += @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'tests\host-src\main') -Recurse -Filter '*.java' -File |
     Sort-Object FullName | ForEach-Object { $_.FullName })
@@ -91,5 +93,18 @@ foreach ($scenario in $styleScenarios) {
     & (Join-Path $JavaRoot 'bin\java.exe') -cp $hostClasses io.github.foldaspect.unlock.StatusBarStyleRegression $scenario
     if ($LASTEXITCODE -ne 0) { throw "Host style policy regression failed: $scenario" }
 }
-Write-Host "PASS $($scenarios.Count + $insetScenarios.Count + $appearanceScenarios.Count + $styleScenarios.Count) isolated host scenarios."
+$widthScenarios = @(
+    'width-policy-geometry',
+    'width-native-wide',
+    'width-context-optouts',
+    'width-endpoint-persistence',
+    'width-registration-failures',
+    'width-refresh-targets',
+    'width-refresh-failures'
+)
+foreach ($scenario in $widthScenarios) {
+    & (Join-Path $JavaRoot 'bin\java.exe') -cp $hostClasses io.github.foldaspect.unlock.WidthModeRegression $scenario (Join-Path $PSScriptRoot 'app\src\main\AndroidManifest.xml')
+    if ($LASTEXITCODE -ne 0) { throw "Host width regression failed: $scenario" }
+}
+Write-Host "PASS $($scenarios.Count + $insetScenarios.Count + $appearanceScenarios.Count + $styleScenarios.Count + $widthScenarios.Count) isolated host scenarios."
 Write-Host 'Host fold/status-bar models do not establish ART hook activation, native fold dispatch, app rendering or physical-device behavior.'

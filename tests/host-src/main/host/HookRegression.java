@@ -10,6 +10,8 @@ import com.android.server.wm.MiuiSizeCompatService;
 import com.android.server.wm.WindowState;
 import com.android.server.wm.DisplayPolicy;
 import com.android.server.wm.AppCompatLetterboxPolicy;
+import com.android.server.wm.ActivityRecord;
+import android.graphics.Rect;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 import io.github.foldaspect.unlock.AspectUnlock;
@@ -26,7 +28,7 @@ import java.util.Set;
 
 /** Runs the real module with a small host API surface. One scenario per JVM. */
 public final class HookRegression {
-    private static final String TARGET_BUILD = "OS4.0.21.0.XPNCNXM";
+    private static final String TARGET_BUILD = "OS4.0.26.0.XPNCNXM";
     private static final String PROTECTED[] = {
         "android", "com.android.systemui", "com.miui.home",
         "com.android.permissioncontroller", "com.google.android.permissioncontroller"
@@ -79,7 +81,10 @@ public final class HookRegression {
             method(WindowState.class, "getCompatInsetsState"),
             method(DisplayPolicy.class, "configureStatusBarOpacity", int.class),
             method(DisplayPolicy.class, "updateLightNavigationBarLw", int.class, WindowState.class),
-            method(AppCompatLetterboxPolicy.class, "getLetterboxDetails")
+            method(AppCompatLetterboxPolicy.class, "getLetterboxDetails"),
+            method(MiuiSizeCompatService.class, "getWideFoldDefaultRatio", ActivityRecord.class),
+            method(BoundsCompatUtils.class, "getGlobalScaleByName", String.class, int.class, Rect.class, boolean.class, float.class),
+            method(MiuiSizeCompatService.class, "onSystemReady", ActivityTaskManagerService.class)
         ));
     }
 

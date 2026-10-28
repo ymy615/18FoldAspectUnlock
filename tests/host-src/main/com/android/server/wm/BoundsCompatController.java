@@ -7,6 +7,7 @@ public final class BoundsCompatController {
     public boolean multipleSplit;
     public boolean game;
     public float currentScale = 0.82466f;
+    public float mGlobalScale = 0.8f;
 
     boolean hideStatusBarInSizeCompat() {
         return wideFoldCompatScene && inSizeCompat;

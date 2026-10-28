@@ -4,6 +4,8 @@ import android.app.Activity;
 import android.os.Build;
 import android.os.Bundle;
 import android.content.Intent;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Insets;
 import android.view.WindowInsets;
@@ -14,9 +16,17 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.Switch;
+import android.os.Handler;
+import android.os.Looper;
 
 public final class LauncherActivity extends Activity {
     private LinearLayout content;
+    private Switch widthSwitch;
+    private TextView widthStatus;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private boolean renderingWidth;
+    private int widthRequest;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         ScrollView scroll = new ScrollView(this);
@@ -49,14 +59,33 @@ public final class LauncherActivity extends Activity {
         }
         page.requestApplyInsets();
         text("画幅切换解锁", 28, Color.rgb(24, 35, 50));
-        text("小米 18 Fold · 0.2.0 测试版", 15, Color.DKGRAY);
+        text("小米 18 Fold · 0.3.0 测试版", 15, Color.DKGRAY);
         boolean supported = UnlockPolicy.supports(Build.DEVICE, Build.VERSION.SDK_INT, Build.VERSION.INCREMENTAL);
         text(supported ? "系统版本匹配" : "当前系统版本不在适配范围，模块不会加载", 19,
                 supported ? Color.rgb(20, 110, 75) : Color.rgb(165, 60, 40));
         text("当前版本：" + Build.VERSION.INCREMENTAL + "\n适配版本：" + UnlockPolicy.TARGET_BUILD, 14, Color.DKGRAY);
+        text("画幅宽度", 21, Color.BLACK);
+        widthSwitch = new Switch(this);
+        widthSwitch.setText("使用旧版宽版");
+        widthSwitch.setTextSize(18);
+        widthSwitch.setPadding(0, 16, 0, 16);
+        widthSwitch.setEnabled(false);
+        content.addView(widthSwitch);
+        widthStatus = new TextView(this);
+        widthStatus.setTextSize(15);
+        widthStatus.setPadding(0, 8, 0, 20);
+        content.addView(widthStatus);
+        text("关闭：新版窄版（20:9）。开启：旧版宽版（16:9）。这是所有应用共用的总开关，每个应用原来的画幅开关仍通过控制中心操作。", 15, Color.DKGRAY);
+        widthSwitch.setOnCheckedChangeListener((button, checked) -> {
+            if (!renderingWidth) requestWidth(true, checked ? WidthModePolicy.WIDE : WidthModePolicy.NARROW);
+        });
+        Button refresh = new Button(this);
+        refresh.setText("刷新模块状态");
+        refresh.setOnClickListener(v -> requestWidth(false, WidthModePolicy.NARROW));
+        content.addView(refresh);
         text("启用方法", 21, Color.BLACK);
         text("1. 在 LSPosed 中开启“画幅切换解锁”。\n2. 作用域勾选“系统框架”和“系统界面”。\n3. 完整重启手机。\n4. 打开应用，在控制中心点击原有的“画幅切换”。", 17, Color.DKGRAY);
-        text("此页面只能确认版本匹配，不能确认系统框架中的模块已激活。", 14, Color.DKGRAY);
+        text("“系统版本匹配”只表示处于适配范围；上方画幅宽度状态会检查模块是否已在系统框架中生效。", 14, Color.DKGRAY);
         Button manager = new Button(this);
         manager.setText("打开 LSPosed");
         manager.setOnClickListener(v -> {
@@ -77,6 +106,50 @@ public final class LauncherActivity extends Activity {
         text("画幅切换适用于系统允许的外屏竖屏、全屏应用场景。桌面、锁屏、分屏、固定横屏和已有独立游戏比例配置仍按系统规则处理。解除限制不代表所有应用都能正确适配，尤其需要检查相机预览和扫码页面。", 16, Color.DKGRAY);
         text("恢复原状", 21, Color.BLACK);
         text("先将测试过的应用切回全屏，再在 LSPosed 停用模块并重启。模块不替换系统文件；系统记住的每个应用画幅选择不会自动清除。", 16, Color.DKGRAY);
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        requestWidth(false, WidthModePolicy.NARROW);
+    }
+
+    private void requestWidth(boolean write, int mode) {
+        if (widthSwitch == null) return;
+        final int request = ++widthRequest;
+        widthSwitch.setEnabled(false);
+        if (!UnlockPolicy.supports(Build.DEVICE, Build.VERSION.SDK_INT, Build.VERSION.INCREMENTAL)) {
+            widthStatus.setText("当前固件未适配，宽窄开关暂不可用。");
+            return;
+        }
+        widthStatus.setText(write ? "正在切换…" : "正在检查模块…");
+        Intent intent = new Intent(WidthModePolicy.ACTION).setPackage("android");
+        intent.putExtra(WidthModePolicy.EXTRA_WRITE, write);
+        intent.putExtra(WidthModePolicy.EXTRA_MODE, mode);
+        Runnable timeout = () -> {
+            if (request != widthRequest || isDestroyed()) return;
+            widthRequest++;
+            widthStatus.setText("模块尚未响应。请在 LSPosed 启用模块并完整重启，再点击“刷新模块状态”。");
+        };
+        mainHandler.postDelayed(timeout, 6000);
+        sendOrderedBroadcast(intent, null, new BroadcastReceiver() {
+            @Override public void onReceive(Context context, Intent received) {
+                if (request != widthRequest || isDestroyed()) return;
+                mainHandler.removeCallbacks(timeout);
+                Bundle result = getResultExtras(false);
+                int current = result == null ? -1 : result.getInt(WidthModePolicy.EXTRA_MODE, -1);
+                if (getResultCode() != RESULT_OK || !WidthModePolicy.valid(current)) {
+                    widthStatus.setText("模块尚未生效。请在 LSPosed 启用模块并完整重启，再刷新状态。");
+                    return;
+                }
+                renderingWidth = true;
+                widthSwitch.setChecked(current == WidthModePolicy.WIDE);
+                renderingWidth = false;
+                widthSwitch.setEnabled(true);
+                String selected = current == WidthModePolicy.WIDE ? "旧版宽版（16:9）" : "新版窄版（20:9）";
+                widthStatus.setText("当前全局模式：" + selected + "。模块已响应，选择会在重启后保留。"
+                        + (write && result.getInt("deferred", 0) > 0 ? "部分应用需要重新打开后应用新宽度。" : ""));
+            }
+        }, mainHandler, RESULT_CANCELED, null, null);
     }
 
     private void text(String value, int size, int color) {

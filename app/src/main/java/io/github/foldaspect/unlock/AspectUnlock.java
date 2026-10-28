@@ -38,6 +38,7 @@ public final class AspectUnlock implements IXposedHookLoadPackage {
                 Method hideStatusBar = booleanMethod(boundsController, "hideStatusBarInSizeCompat");
                 StatusBarInsetFix statusInsets = new StatusBarInsetFix(load.classLoader);
                 StatusBarAppearance statusAppearance = new StatusBarAppearance(load.classLoader);
+                WidthModeController width = new WidthModeController(load.classLoader);
 
                 applied.add(XposedBridge.hookMethod(disabled, new XC_MethodHook() {
                     @Override protected void beforeHookedMethod(MethodHookParam p) {
@@ -68,8 +69,11 @@ public final class AspectUnlock implements IXposedHookLoadPackage {
                 applied.add(XposedBridge.hookMethod(statusAppearance.opacityTarget, statusAppearance));
                 applied.add(XposedBridge.hookMethod(statusAppearance.appearanceTarget, statusAppearance));
                 applied.add(XposedBridge.hookMethod(statusAppearance.letterboxTarget, statusAppearance.letterboxCallback));
+                applied.add(XposedBridge.hookMethod(width.ratioTarget, width.ratioCallback));
+                applied.add(XposedBridge.hookMethod(width.scaleTarget, width.scaleCallback));
+                applied.add(XposedBridge.hookMethod(width.readyTarget, width.readyCallback));
                 installed = true;
-                XposedBridge.log(TAG + "ACTIVE 9/9 hooks; inner=default; outer=preserved; statusBar=semi-transparent; insets=corrected; build=" + Build.VERSION.INCREMENTAL);
+                XposedBridge.log(TAG + "ACTIVE 12/12 hooks; inner=default; outer=preserved; statusBar=semi-transparent; insets=corrected; width=selectable; build=" + Build.VERSION.INCREMENTAL);
             } catch (Throwable failure) {
                 for (XC_MethodHook.Unhook hook : applied) {
                     try { hook.unhook(); } catch (Throwable ignored) {}

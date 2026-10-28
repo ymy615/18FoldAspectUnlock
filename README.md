@@ -1,12 +1,19 @@
 # 18FoldAspectUnlock · 画幅切换解锁
 
-为 **Xiaomi 18 Fold** 制作的 LSPosed 模块，扩展控制中心原有“画幅切换”的应用支持范围。当前版本 **0.2.0 测试版**。
+为 **Xiaomi 18 Fold** 制作的 LSPosed 模块，扩展控制中心原有“画幅切换”的应用支持范围。当前版本 **0.3.0 测试版**，适配 OS4.0.26.0.XPNCNXM。
 
-[版本发布页](https://github.com/ymy615/18FoldAspectUnlock/releases/tag/v0.2.0) · [全部发布记录](https://github.com/ymy615/18FoldAspectUnlock/releases)
+[v0.3.0 发布页与 APK](https://github.com/ymy615/18FoldAspectUnlock/releases/tag/v0.3.0) · [全部发布记录](https://github.com/ymy615/18FoldAspectUnlock/releases)
 
-在仓库首页右侧 **Releases** 点击 **v0.2.0**，进入版本页面后，在 **Assets** 中下载 `FoldAspectUnlock-0.2.0.apk`。
+发布版本的 APK 位于仓库首页右侧 **Releases → 对应版本 → Assets**。OS4.0.21.0 请使用 v0.2.0；不要将旧固件版本直接用于新 OTA。
 
-## 0.2.0 新功能
+## 0.3.0 新功能
+
+- **适配 OS4.0.26.0.XPNCNXM**，重新核对应用限制和原有状态栏功能。
+- **全局宽窄开关**：模块主页关闭“使用旧版宽版”时沿用新版窄版（普通应用 20:9），开启时恢复旧版宽版（16:9）及旧版默认缩放计算。选择单独保存，重启后保留。
+- **切换后刷新**：对正在画幅模式中的普通前台应用调用系统原有配置更新，后台应用使旧缩放缓存失效；部分应用可能需要重新打开。应用原有全屏/画幅选择继续保留。
+- 新系统当前规则为 **19 个禁用包、3 个强制全屏页面**，详见[新固件名单与宽度分析](docs/firmware-os4.0.26.0.md)。
+
+## 保留的功能
 
 - **展开恢复默认全屏**：内屏展开期间暂停普通应用的画幅模式。外屏画幅选择保留，折回后自动恢复；不写入“永久关闭画幅”的设置。
 - **画幅模式保留状态栏**：移除画幅模式额外施加的顶部状态栏隐藏。视频、游戏等应用自身请求的沉浸式全屏保持原有行为。
@@ -19,7 +26,7 @@
 | 项目 | 当前要求 |
 | --- | --- |
 | 手机 | Xiaomi 18 Fold（代号 `lhasa`） |
-| 系统 | HyperOS **OS4.0.21.0.XPNCNXM** |
+| 系统 | HyperOS **OS4.0.26.0.XPNCNXM**（旧 21 版使用 v0.2.0） |
 | Android | **17 / API 37** |
 | 框架 | 已正常运行的 LSPosed，兼容 legacy Xposed API |
 | 作用域 | **系统框架（android）＋系统界面（com.android.systemui）** |
@@ -28,22 +35,24 @@
 
 ## 安装与使用
 
-1. 从仓库右侧 **Releases → v0.2.0 → Assets** 下载并安装 APK；已安装旧版时可以直接覆盖升级。
+1. 安装与当前固件匹配的 APK；已安装旧版时可以直接覆盖升级。
 2. 打开 LSPosed，在模块列表中启用 **画幅切换解锁**。
 3. 作用域勾选 **系统框架（android）** 和 **系统界面（com.android.systemui）**，不需要逐个勾选普通应用。旧版升级也需补勾选系统界面。
 4. **完整重启手机**。
 5. 在外屏打开应用，保持竖屏全屏，从控制中心点击原有的 **画幅切换**。展开内屏会恢复默认全屏，折回会恢复之前的外屏选择。
+6. 需要调整宽度时，打开模块主页，切换 **使用旧版宽版**。第一次启用模块需要重启，此后宽窄选择无需每次整机重启。
 
 模块启动页提供版本检查与使用说明。“系统版本匹配”不代表 Hook 已激活；可在 LSPosed 日志中检查：
 
 ```text
-[FoldAspectUnlock] ACTIVE 9/9 hooks; inner=default; outer=preserved; statusBar=semi-transparent; insets=corrected; build=OS4.0.21.0.XPNCNXM
+[FoldAspectUnlock] ACTIVE 12/12 hooks; inner=default; outer=preserved; statusBar=semi-transparent; insets=corrected; width=selectable; build=OS4.0.26.0.XPNCNXM
+[FoldAspectUnlock] WIDTH READY; mode=narrow
 [FoldAspectUnlock] UI ACTIVE 9/9 hooks; height=90px; scrim=20%
 ```
 
 ## 实际作用
 
-当前适配固件包含 61 条应用禁用规则和 21 条页面强制全屏规则。模块解除这些限制，并放行普通应用 UID 的预装应用。实际切换仍由系统原有功能完成。
+当前适配固件包含 19 条应用禁用规则和 3 条页面强制全屏规则。模块解除这些限制，并放行普通应用 UID 的预装应用。实际画幅开关仍由系统原有功能完成。
 
 | Hook 方法 | 作用 |
 | --- | --- |
@@ -56,8 +65,11 @@
 | `DisplayPolicy.configureStatusBarOpacity(int)` | 外屏画幅状态栏选择原生半透明模式 |
 | `DisplayPolicy.updateLightNavigationBarLw(int, WindowState)` | 在外观合并时保留上述模式，保留导航栏颜色标志 |
 | `AppCompatLetterboxPolicy.getLetterboxDetails()` | 避免前台画幅应用的状态栏被黑边配色再次覆盖，不改真实黑边布局 |
+| `MiuiSizeCompatService.getWideFoldDefaultRatio(ActivityRecord)` | 宽版时返回旧 16:9，窄版沿用新系统及小程序特例 |
+| `BoundsCompatUtils.getGlobalScaleByName(...)` | 宽版恢复旧默认缩放，保留显式禁用及专用缩放规则 |
+| `MiuiSizeCompatService.onSystemReady(ActivityTaskManagerService)` | 注册受签名权限保护的全局设置入口并恢复已保存的宽度模式 |
 
-九处方法及相关成员的签名全部匹配后才安装 Hook；安装失败会撤回本次已经安装的 Hook。内屏策略不修改每个应用的已保存比例及任务的全屏标记，因此可恢复外屏选择。
+十二处方法及相关成员的签名全部匹配后才安装核心 Hook；安装失败会撤回本次已经安装的 Hook。宽度选择存放在模块独立设置项中，切换它不写每个应用的画幅记录或任务全屏标记。
 
 系统界面另外预检并安装九个绘制相关 Hook，只响应系统框架发出的当前画幅场景标记，调整状态栏窗口、图标容器和背景色；不进入普通应用进程。退出场景恢复原高度和底色。未勾选系统界面时，画幅及半透明状态栏基础功能仍可工作，但没有 90 像素高度和 20% 底色调整。
 
@@ -65,6 +77,7 @@
 
 - 保留系统权限、锁屏、桌面/最近任务、助手/梦境、主显示屏、竖屏和全屏窗口条件。
 - 固定横屏、分屏及已有独立游戏比例配置仍受系统原有规则约束。
+- 窄版沿用系统特例，微信小程序仍为原生 16:9；专用云端缩放配置可优先于默认宽度算法。
 - 内屏展开期间不提供普通画幅切换；若需在内屏手动开启画幅，此版本不适用。应用自有固定比例与独立游戏比例不在本次自动恢复范围内。
 - **解除限制不代表所有应用都能正确显示。** 相机预览、扫码和其他特殊页面需要实际测试。
 - 顶部留白修正限定外屏竖屏全屏的普通应用主窗口；分屏、游戏独立缩放、复杂系统栏边界数据和应用自己绘制的留白不强行修改。
@@ -72,6 +85,10 @@
 - 不修改系统文件、屏幕全局分辨率或其他应用 APK。
 
 ## 验证情况
+
+0.3.0：新固件规则、比例、默认缩放和既有状态栏目标已完成只读核对。编译及签名验证通过，当前固件 57 项策略检查与 29 个主机回归场景通过；测试 APK 已安装，尚待启用模块、重启并进行宽窄切换及保存的实机验证。
+
+以下为 **0.2.0 在 OS4.0.21.0 上**的历史验证，不能直接当成 0.3.0 的新固件实测结果：
 
 - 最终安装包已在目标手机确认 **系统框架 9/9、系统界面 9/9 Hook 激活**。
 - 小红书与模块说明页的外屏画幅模式实测状态栏高度为 **90 像素**。小红书上时间、电量及网络图标为白色且完整；白色背景上的底色像素为 RGB(204,204,204)，与 **20% 不透明黑色**一致。
@@ -106,7 +123,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
 
 如果 SDK 平台目录名为 `android-37`，将 `-Platform` 改为该名称。首次构建会从发布者站点下载编译用 Xposed API 82，并校验固定 SHA-256。无需安装 Gradle。
 
-- APK 输出到 `dist/FoldAspectUnlock-0.2.0.apk`，同时生成 `.sha256` 文件。
+- APK 输出到 `dist/FoldAspectUnlock-0.3.0.apk`，同时生成 `.sha256` 文件。
 - 首次构建在 `.local/` 生成本地签名密钥。请保留密钥以便后续更新，**不要提交或分享**。
 - 自行构建的签名与 Releases 中的签名通常不同，不能直接覆盖另一签名的安装包。
 - Xposed API 仅用于编译，不会打包进 APK；来源和许可证见 [libs/SOURCE.txt](libs/SOURCE.txt)。

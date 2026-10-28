@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="io.github.foldaspect.unlock"
-    android:versionCode="2"
-    android:versionName="0.2.0">
+    android:versionCode="3"
+    android:versionName="0.3.0">
     <uses-sdk android:minSdkVersion="35" android:targetSdkVersion="35" />
+    <permission android:name="io.github.foldaspect.unlock.permission.WIDTH_CONTROL" android:protectionLevel="signature" />
+    <uses-permission android:name="io.github.foldaspect.unlock.permission.WIDTH_CONTROL" />
     <queries>
         <package android:name="org.lsposed.manager" />
     </queries>
@@ -15,6 +17,7 @@
         android:supportsRtl="true">
         <activity
             android:name="io.github.foldaspect.unlock.LauncherActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density"
             android:exported="true"
             android:theme="@android:style/Theme.Material.Light.NoActionBar">
             <intent-filter>
