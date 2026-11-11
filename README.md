@@ -1,10 +1,28 @@
 # 18FoldAspectUnlock · 画幅切换解锁
 
-为 **Xiaomi 18 Fold** 制作的 LSPosed 模块，扩展控制中心原有“画幅切换”的应用支持范围。当前版本 **0.3.0 测试版**，适配 OS4.0.26.0.XPNCNXM。
+为 **Xiaomi 18 Fold** 制作的 LSPosed 模块，扩展控制中心原有“画幅切换”的应用支持范围。当前版本 **0.3.3 测试版**，适配 OS4.0.26.0.XPNCNXM。
 
-[v0.3.0 发布页与 APK](https://github.com/ymy615/18FoldAspectUnlock/releases/tag/v0.3.0) · [全部发布记录](https://github.com/ymy615/18FoldAspectUnlock/releases)
+[v0.3.3 发布页与 APK](https://github.com/ymy615/18FoldAspectUnlock/releases/tag/v0.3.3) · [全部发布记录](https://github.com/ymy615/18FoldAspectUnlock/releases)
 
 发布版本的 APK 位于仓库首页右侧 **Releases → 对应版本 → Assets**。OS4.0.21.0 请使用 v0.2.0；不要将旧固件版本直接用于新 OTA。
+
+## 0.3.3 修复
+
+- **单侧回桌面仍保留状态栏**：关闭一侧分屏应用后，即使焦点转到桌面，只要另一侧仍有实际可见、请求可见的普通左右分屏应用，状态栏继续显示。
+- 检查当前显示屏里的真实活动和主窗口，不再仅以焦点是否为普通应用判断分屏是否结束。桌面自身、完全退出分屏、只剩隐藏旧任务及系统窗口仍使用原有处理。
+
+## 0.3.2 修复
+
+- 修正左右分屏时系统传入空或旧全屏候选窗口，导致状态栏控制目标未被接管的问题；场景依据改为当前真实焦点。
+- 在系统最终派发状态栏控制权时补充保护，使用常显控制目标并清理对应的临时状态栏目标；导航栏两项控制目标保持原值。
+- 保留通知栏、控制中心等明确系统窗口的原有控制；新增实际命中时的 `SPLIT controls=permanent; nav=preserved` 日志。
+
+## 0.3.1 新功能
+
+- **内屏左右分屏保留状态栏**：普通应用处于系统左右分屏时，保留时间、电量和网络图标，使用系统原有内屏高度。
+- **保留顶部边距**：在固件剥除分屏应用的状态栏来源时，补回原生状态栏边距；不套用外屏缩放或 90 像素样式。
+- 只解除这个场景对状态栏的强制隐藏，保留导航栏的原有处理。退出分屏后回到系统原有行为；上下分屏、小窗、锁屏及副屏不启用此功能。
+- 此版本需更新模块并完整重启后生效，现有“系统框架＋系统界面”作用域继续使用。
 
 ## 0.3.0 新功能
 
@@ -45,7 +63,7 @@
 模块启动页提供版本检查与使用说明。“系统版本匹配”不代表 Hook 已激活；可在 LSPosed 日志中检查：
 
 ```text
-[FoldAspectUnlock] ACTIVE 12/12 hooks; inner=default; outer=preserved; statusBar=semi-transparent; insets=corrected; width=selectable; build=OS4.0.26.0.XPNCNXM
+[FoldAspectUnlock] ACTIVE 17/17 hooks; inner=default; outer=preserved; statusBar=semi-transparent; insets=corrected; width=selectable; splitStatusBar=visible; build=OS4.0.26.0.XPNCNXM
 [FoldAspectUnlock] WIDTH READY; mode=narrow
 [FoldAspectUnlock] UI ACTIVE 9/9 hooks; height=90px; scrim=20%
 ```
@@ -68,15 +86,20 @@
 | `MiuiSizeCompatService.getWideFoldDefaultRatio(ActivityRecord)` | 宽版时返回旧 16:9，窄版沿用新系统及小程序特例 |
 | `BoundsCompatUtils.getGlobalScaleByName(...)` | 宽版恢复旧默认缩放，保留显式禁用及专用缩放规则 |
 | `MiuiSizeCompatService.onSystemReady(ActivityTaskManagerService)` | 注册受签名权限保护的全局设置入口并恢复已保存的宽度模式 |
+| `InsetsPolicy.getStatusControlTargetInner(WindowState, boolean)` | 内屏左右分屏时使用系统常显状态栏控制目标 |
+| `InsetsPolicy.BarWindow.setVisible(boolean)` | 仅让上述场景中的状态栏维持显示，不改变导航栏状态 |
+| `InsetsPolicy.hideSystemBars(int)` | 仅移除上述场景的状态栏隐藏位，保留导航栏及其他类型 |
+| `InsetsPolicy.enforceInsetsPolicyForTarget(WindowState, InsetsState)` | 为普通左右分屏应用补回被剥除的原生状态栏来源 |
+| `InsetsStateController.onBarControlTargetChanged(...)` | 在最终控制派发处使用常显状态栏目标，清理临时状态栏目标，保留导航栏控制参数 |
 
-十二处方法及相关成员的签名全部匹配后才安装核心 Hook；安装失败会撤回本次已经安装的 Hook。宽度选择存放在模块独立设置项中，切换它不写每个应用的画幅记录或任务全屏标记。
+十七处方法及相关成员的签名全部匹配后才安装核心 Hook；安装失败会撤回本次已经安装的 Hook。宽度选择存放在模块独立设置项中，切换它不写每个应用的画幅记录或任务全屏标记。
 
 系统界面另外预检并安装九个绘制相关 Hook，只响应系统框架发出的当前画幅场景标记，调整状态栏窗口、图标容器和背景色；不进入普通应用进程。退出场景恢复原高度和底色。未勾选系统界面时，画幅及半透明状态栏基础功能仍可工作，但没有 90 像素高度和 20% 底色调整。
 
 ## 限制
 
 - 保留系统权限、锁屏、桌面/最近任务、助手/梦境、主显示屏、竖屏和全屏窗口条件。
-- 固定横屏、分屏及已有独立游戏比例配置仍受系统原有规则约束。
+- 固定横屏、分屏及已有独立游戏比例配置的画幅仍受系统原有规则约束；内屏左右分屏额外保留状态栏。
 - 窄版沿用系统特例，微信小程序仍为原生 16:9；专用云端缩放配置可优先于默认宽度算法。
 - 内屏展开期间不提供普通画幅切换；若需在内屏手动开启画幅，此版本不适用。应用自有固定比例与独立游戏比例不在本次自动恢复范围内。
 - **解除限制不代表所有应用都能正确显示。** 相机预览、扫码和其他特殊页面需要实际测试。
@@ -85,6 +108,12 @@
 - 不修改系统文件、屏幕全局分辨率或其他应用 APK。
 
 ## 验证情况
+
+0.3.3：编译、签名、57 项策略检查和 43 个独立主机回归通过。新增覆盖一侧应用＋另一侧桌面、焦点短暂为空、隐藏旧活动排除、桌面 Insets 保护、枚举异常和完全退出恢复。覆盖安装及 APK 哈希核验通过，已有宽窄和应用画幅设置未变化。用户已确认双应用分屏及“一侧应用＋另一侧桌面”的状态栏显示实测正常。
+
+0.3.2：编译、签名、57 项策略检查和 40 个独立主机回归通过，安装包及设置保留已核验。用户重启后确认双应用分屏状态栏显示正常；关闭一侧回桌面后仍会消失，已捕获真实焦点转为桌面、另一侧普通应用仍可见的状态，由 0.3.3 继续修复。双应用显示已确认不代表其他顶部边距及全部退出场景都已验证。
+
+0.3.1：编译、签名、57 项策略检查和 37 个独立主机回归通过，覆盖安装与设置保留检查通过。重启后确认系统框架 16/16、系统界面 9/9 加载，但状态栏实际控制仍为临时目标，图层被隐藏并移至 y=-140，未成功恢复用户可见的状态栏。此问题由 0.3.2 继续修复。
 
 0.3.0：新固件规则、比例、默认缩放和既有状态栏目标已完成只读核对。编译及签名验证通过，当前固件 57 项策略检查与 29 个主机回归场景通过；测试 APK 已安装，尚待启用模块、重启并进行宽窄切换及保存的实机验证。
 
@@ -123,7 +152,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
 
 如果 SDK 平台目录名为 `android-37`，将 `-Platform` 改为该名称。首次构建会从发布者站点下载编译用 Xposed API 82，并校验固定 SHA-256。无需安装 Gradle。
 
-- APK 输出到 `dist/FoldAspectUnlock-0.3.0.apk`，同时生成 `.sha256` 文件。
+- APK 输出到 `dist/FoldAspectUnlock-0.3.3.apk`，同时生成 `.sha256` 文件。
 - 首次构建在 `.local/` 生成本地签名密钥。请保留密钥以便后续更新，**不要提交或分享**。
 - 自行构建的签名与 Releases 中的签名通常不同，不能直接覆盖另一签名的安装包。
 - Xposed API 仅用于编译，不会打包进 APK；来源和许可证见 [libs/SOURCE.txt](libs/SOURCE.txt)。

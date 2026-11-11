@@ -4,6 +4,8 @@ package com.android.server.wm;
 public final class ActivityTaskManagerService {
     public boolean folded;
     public boolean portrait = true;
+    public boolean splitScreen;
+    public boolean isInSplitScreenWindowingMode() { return splitScreen; }
     public WindowManagerGlobalLock mGlobalLock = new WindowManagerGlobalLock();
     public RootWindowContainer mRootWindowContainer = new RootWindowContainer();
     public android.content.res.Configuration configuration = new android.content.res.Configuration();

@@ -5,12 +5,16 @@ public final class ActivityRecord extends WindowContainer {
     public WindowProcessController app = new WindowProcessController();
     public Task task = new Task();
     public boolean visible = true;
+    public boolean failVisible;
     public boolean attached = true;
     public boolean failApply;
     public int applyCalls;
     public boolean lastEnabled;
     public int lastChanges;
-    public boolean isVisible() { return visible; }
+    public boolean isVisible() {
+        if (failVisible) throw new IllegalStateException("injected activity-visibility lookup failure");
+        return visible;
+    }
     public boolean attachedToProcess() { return attached; }
     public Task getTask() { return task; }
     public BoundsCompatController mBoundsCompatControllerStub = new BoundsCompatController();

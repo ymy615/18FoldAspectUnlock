@@ -6,12 +6,15 @@ import com.android.server.wm.ActivityTaskManagerService;
 import com.android.server.wm.BoundsCompatController;
 import com.android.server.wm.BoundsCompatUtils;
 import com.android.server.wm.InsetsPolicy;
+import com.android.server.wm.InsetsStateController;
+import com.android.server.wm.InsetsControlTarget;
 import com.android.server.wm.MiuiSizeCompatService;
 import com.android.server.wm.WindowState;
 import com.android.server.wm.DisplayPolicy;
 import com.android.server.wm.AppCompatLetterboxPolicy;
 import com.android.server.wm.ActivityRecord;
 import android.graphics.Rect;
+import android.view.InsetsState;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 import io.github.foldaspect.unlock.AspectUnlock;
@@ -84,7 +87,13 @@ public final class HookRegression {
             method(AppCompatLetterboxPolicy.class, "getLetterboxDetails"),
             method(MiuiSizeCompatService.class, "getWideFoldDefaultRatio", ActivityRecord.class),
             method(BoundsCompatUtils.class, "getGlobalScaleByName", String.class, int.class, Rect.class, boolean.class, float.class),
-            method(MiuiSizeCompatService.class, "onSystemReady", ActivityTaskManagerService.class)
+            method(MiuiSizeCompatService.class, "onSystemReady", ActivityTaskManagerService.class),
+            method(InsetsPolicy.class, "getStatusControlTargetInner", WindowState.class, boolean.class),
+            method(Class.forName("com.android.server.wm.InsetsPolicy$BarWindow"), "setVisible", boolean.class),
+            method(InsetsPolicy.class, "hideSystemBars", int.class),
+            method(InsetsPolicy.class, "enforceInsetsPolicyForTarget", WindowState.class, InsetsState.class),
+            method(InsetsStateController.class, "onBarControlTargetChanged", InsetsControlTarget.class,
+                InsetsControlTarget.class, InsetsControlTarget.class, InsetsControlTarget.class)
         ));
     }
 

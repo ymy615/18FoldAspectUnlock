@@ -4,7 +4,7 @@ import android.graphics.Rect;
 import android.view.InsetsState;
 import android.view.WindowManager;
 
-public final class WindowState extends WindowContainer {
+public final class WindowState extends WindowContainer implements InsetsControlTarget {
     public ActivityRecord mActivityRecord = new ActivityRecord();
     public float mGlobalScale = 0.82466f;
     public WindowManager.LayoutParams mAttrs = new WindowManager.LayoutParams();
@@ -15,6 +15,8 @@ public final class WindowState extends WindowContainer {
     public RuntimeException originalFailure;
     public boolean failGetFrame;
     public boolean focused = true;
+    public Task task = new Task();
+    public Task getTask() { return task; }
 
     public int getDisplayId() { return displayId; }
     public boolean isFocused() { return focused; }

@@ -12,6 +12,11 @@ public final class Rect {
     public Rect(Rect other) { this(other.left, other.top, other.right, other.bottom); }
     public int width() { return right - left; }
     public int height() { return bottom - top; }
+    public boolean contains(Rect other) {
+        return other != null && left < right && top < bottom
+            && left <= other.left && top <= other.top
+            && right >= other.right && bottom >= other.bottom;
+    }
     @Override public boolean equals(Object other) {
         if (!(other instanceof Rect)) return false;
         Rect r = (Rect) other;

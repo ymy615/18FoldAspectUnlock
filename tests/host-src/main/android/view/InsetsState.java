@@ -14,7 +14,7 @@ public final class InsetsState {
         }
         throwAtIndex = original.throwAtIndex;
     }
-    public InsetsState addSource(InsetsSource source) { sources.add(source); return this; }
+    public void addSource(InsetsSource source) { sources.add(source); }
     public int sourceSize() { return sources.size(); }
     public InsetsSource sourceAt(int index) {
         if (index == throwAtIndex) throw new IllegalStateException("injected source traversal failure");

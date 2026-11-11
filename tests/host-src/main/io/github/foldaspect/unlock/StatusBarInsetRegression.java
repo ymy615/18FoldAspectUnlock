@@ -51,10 +51,10 @@ public final class StatusBarInsetRegression {
         WindowState window = new WindowState();
         // getCompatInsetsState's native result is already in scaled coordinates.
         // Status/cutout were 126 physical pixels before native inverse scaling.
-        window.nativeResult = new InsetsState()
-            .addSource(new InsetsSource(WindowInsets.Type.statusBars(), new Rect(0, 0, 1280, 153)))
-            .addSource(new InsetsSource(WindowInsets.Type.navigationBars(), new Rect(0, 2182, 1280, 2280)))
-            .addSource(new InsetsSource(WindowInsets.Type.displayCutout(), new Rect(600, 0, 680, 153)));
+        window.nativeResult = new InsetsState();
+        window.nativeResult.addSource(new InsetsSource(WindowInsets.Type.statusBars(), new Rect(0, 0, 1280, 153)));
+        window.nativeResult.addSource(new InsetsSource(WindowInsets.Type.navigationBars(), new Rect(0, 2182, 1280, 2280)));
+        window.nativeResult.addSource(new InsetsSource(WindowInsets.Type.displayCutout(), new Rect(600, 0, 680, 153)));
         return window;
     }
 

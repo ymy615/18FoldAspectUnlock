@@ -39,6 +39,7 @@ public final class AspectUnlock implements IXposedHookLoadPackage {
                 StatusBarInsetFix statusInsets = new StatusBarInsetFix(load.classLoader);
                 StatusBarAppearance statusAppearance = new StatusBarAppearance(load.classLoader);
                 WidthModeController width = new WidthModeController(load.classLoader);
+                SplitStatusBarController split = new SplitStatusBarController(load.classLoader);
 
                 applied.add(XposedBridge.hookMethod(disabled, new XC_MethodHook() {
                     @Override protected void beforeHookedMethod(MethodHookParam p) {
@@ -72,8 +73,13 @@ public final class AspectUnlock implements IXposedHookLoadPackage {
                 applied.add(XposedBridge.hookMethod(width.ratioTarget, width.ratioCallback));
                 applied.add(XposedBridge.hookMethod(width.scaleTarget, width.scaleCallback));
                 applied.add(XposedBridge.hookMethod(width.readyTarget, width.readyCallback));
+                applied.add(XposedBridge.hookMethod(split.controlTarget, split.controlCallback));
+                applied.add(XposedBridge.hookMethod(split.barVisibility, split.visibilityCallback));
+                applied.add(XposedBridge.hookMethod(split.hideTypes, split.hideCallback));
+                applied.add(XposedBridge.hookMethod(split.targetInsets, split.insetsCallback));
+                applied.add(XposedBridge.hookMethod(split.dispatchTarget, split.dispatchCallback));
                 installed = true;
-                XposedBridge.log(TAG + "ACTIVE 12/12 hooks; inner=default; outer=preserved; statusBar=semi-transparent; insets=corrected; width=selectable; build=" + Build.VERSION.INCREMENTAL);
+                XposedBridge.log(TAG + "ACTIVE 17/17 hooks; inner=default; outer=preserved; statusBar=semi-transparent; insets=corrected; width=selectable; splitStatusBar=visible; build=" + Build.VERSION.INCREMENTAL);
             } catch (Throwable failure) {
                 for (XC_MethodHook.Unhook hook : applied) {
                     try { hook.unhook(); } catch (Throwable ignored) {}

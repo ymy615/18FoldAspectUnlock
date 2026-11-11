@@ -6,6 +6,8 @@ public final class DisplayPolicy {
     public int nativeOpacityBits = 1;
     public int nativeNavigationBits = 16;
     public RuntimeException originalFailure;
+    public boolean keyguardShowing;
+    public boolean isKeyguardShowing() { return keyguardShowing; }
 
     int configureStatusBarOpacity(int appearance) {
         if (originalFailure != null) throw originalFailure;

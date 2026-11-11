@@ -59,7 +59,7 @@ public final class LauncherActivity extends Activity {
         }
         page.requestApplyInsets();
         text("画幅切换解锁", 28, Color.rgb(24, 35, 50));
-        text("小米 18 Fold · 0.3.0 测试版", 15, Color.DKGRAY);
+        text("小米 18 Fold · 0.3.3 测试版", 15, Color.DKGRAY);
         boolean supported = UnlockPolicy.supports(Build.DEVICE, Build.VERSION.SDK_INT, Build.VERSION.INCREMENTAL);
         text(supported ? "系统版本匹配" : "当前系统版本不在适配范围，模块不会加载", 19,
                 supported ? Color.rgb(20, 110, 75) : Color.rgb(165, 60, 40));
@@ -100,6 +100,8 @@ public final class LauncherActivity extends Activity {
         text("画幅模式不再额外隐藏顶部状态栏。视频、游戏等应用自己请求的沉浸式全屏仍按系统原有行为处理。", 17, Color.DKGRAY);
         text("外屏画幅模式使用 20% 不透明深色底和白色图标，状态栏目标高度为 90 像素，图标尺寸保持不变。较大字号会保留足够高度。退出画幅后恢复原有样式。", 17, Color.DKGRAY);
         text("紧凑高度和更浅底色需要勾选“系统界面”作用域。摄像头安全区保留，部分应用仍会按安全区预留顶部空间。", 14, Color.DKGRAY);
+        text("左右分屏保留状态栏", 21, Color.BLACK);
+        text("内屏使用左右分屏时继续显示时间、电量和网络图标；关闭一侧应用回到桌面时，只要另一侧应用仍可见，状态栏也继续显示。恢复应用所需的状态栏边距，使用系统原有内屏高度；完全退出分屏后回到原有行为。", 17, Color.DKGRAY);
         text("解除哪些限制", 21, Color.BLACK);
         text("解除应用禁用名单、普通预装应用判定，以及拍照、扫码等页面的强制全屏名单。系统保留原有的画幅切换按钮和比例计算。", 17, Color.DKGRAY);
         text("使用范围", 21, Color.BLACK);

@@ -11,6 +11,8 @@ public final class InsetsSource {
     public Rect[] boundingRects;
     public InsetsBoundingRect[] insetsBoundingRects;
     public boolean throwOnSetBoundingRects;
+    public boolean visible = true;
+    public boolean throwOnSetVisible;
 
     public InsetsSource(int type, Rect frame) {
         this.type = type;
@@ -27,8 +29,16 @@ public final class InsetsSource {
         }
         insetsBoundingRects = other.insetsBoundingRects == null ? null : other.insetsBoundingRects.clone();
         throwOnSetBoundingRects = other.throwOnSetBoundingRects;
+        visible = other.visible;
+        throwOnSetVisible = other.throwOnSetVisible;
     }
     public int getType() { return type; }
+    public boolean isVisible() { return visible; }
+    public InsetsSource setVisible(boolean value) {
+        if (throwOnSetVisible) throw new IllegalStateException("injected visibility setter failure");
+        visible = value;
+        return this;
+    }
     public Rect getFrame() { return frame; }
     public Rect getVisibleFrame() { return visibleFrame; }
     public Insets getAttachedInsets() { return attachedInsets; }
