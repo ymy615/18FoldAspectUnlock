@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Folded display silhouette with an expansion arrow cut out of its centre. -->
+    <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd"
+        android:pathData="M31,27 C27,26 24,30 24,34 L24,75 C24,80 27,83 31,82 L54,77 L77,82 C81,83 84,80 84,75 L84,34 C84,30 81,26 77,27 L54,32 Z M33,53 L42,45 Q44,43 44,46 L44,51 L64,51 L64,46 Q64,43 66,45 L75,53 Q77,54 75,56 L66,64 Q64,66 64,63 L64,58 L44,58 L44,63 Q44,66 42,64 L33,56 Q31,54 33,53 Z" />
+</vector>

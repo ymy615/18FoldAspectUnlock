@@ -8,4 +8,5 @@ public final class ContentResolver {
     public final Map<String, Integer> globalInts = new LinkedHashMap<>();
     public int writes;
     public boolean rejectWrites;
+    public RuntimeException writeFailure;
 }

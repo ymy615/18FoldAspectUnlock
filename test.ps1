@@ -30,6 +30,7 @@ $hostSources = @(
     (Join-Path $PSScriptRoot 'app\src\main\java\io\github\foldaspect\unlock\StatusBarStylePolicy.java'),
     (Join-Path $PSScriptRoot 'app\src\main\java\io\github\foldaspect\unlock\WidthModePolicy.java'),
     (Join-Path $PSScriptRoot 'app\src\main\java\io\github\foldaspect\unlock\WidthModeController.java'),
+    (Join-Path $PSScriptRoot 'app\src\main\java\io\github\foldaspect\unlock\SplitStatusBarPolicy.java'),
     (Join-Path $PSScriptRoot 'app\src\main\java\io\github\foldaspect\unlock\SplitStatusBarController.java')
 )
 $hostSources += @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'tests\host-src\main') -Recurse -Filter '*.java' -File |
@@ -52,6 +53,8 @@ foreach ($fixture in @('missing-method', 'wrong-return', 'insets-wrong-field', '
 
 $scenarios = @(
     'exact-install',
+    'exact-install-21',
+    'exact-install-22',
     'environment-guards',
     'missing-class',
     'missing-method',
@@ -95,6 +98,8 @@ foreach ($scenario in $styleScenarios) {
     if ($LASTEXITCODE -ne 0) { throw "Host style policy regression failed: $scenario" }
 }
 $widthScenarios = @(
+    'width-legacy-21',
+    'width-legacy-22',
     'width-policy-geometry',
     'width-native-wide',
     'width-context-optouts',
@@ -106,6 +111,16 @@ $widthScenarios = @(
 foreach ($scenario in $widthScenarios) {
     & (Join-Path $JavaRoot 'bin\java.exe') -cp $hostClasses io.github.foldaspect.unlock.WidthModeRegression $scenario (Join-Path $PSScriptRoot 'app\src\main\AndroidManifest.xml')
     if ($LASTEXITCODE -ne 0) { throw "Host width regression failed: $scenario" }
+}
+$splitEndpointScenarios = @(
+    'split-endpoint-defaults',
+    'split-endpoint-requests',
+    'split-endpoint-storage',
+    'split-endpoint-refresh'
+)
+foreach ($scenario in $splitEndpointScenarios) {
+    & (Join-Path $JavaRoot 'bin\java.exe') -cp $hostClasses io.github.foldaspect.unlock.WidthModeRegression $scenario (Join-Path $PSScriptRoot 'app\src\main\AndroidManifest.xml')
+    if ($LASTEXITCODE -ne 0) { throw "Host split status-bar endpoint regression failed: $scenario" }
 }
 $splitScenarios = @(
     'split-status-targets',
@@ -121,11 +136,12 @@ $splitScenarios = @(
     'split-home-visible-scenes',
     'split-home-guards',
     'split-home-failures',
+    'split-enabled-policy',
     'split-preflight'
 )
 foreach ($scenario in $splitScenarios) {
     & (Join-Path $JavaRoot 'bin\java.exe') -cp $hostClasses io.github.foldaspect.unlock.SplitStatusBarRegression $scenario $fixtureClasses
     if ($LASTEXITCODE -ne 0) { throw "Host split status-bar regression failed: $scenario" }
 }
-Write-Host "PASS $($scenarios.Count + $insetScenarios.Count + $appearanceScenarios.Count + $styleScenarios.Count + $widthScenarios.Count + $splitScenarios.Count) isolated host scenarios."
+Write-Host "PASS $($scenarios.Count + $insetScenarios.Count + $appearanceScenarios.Count + $styleScenarios.Count + $widthScenarios.Count + $splitEndpointScenarios.Count + $splitScenarios.Count) isolated host scenarios."
 Write-Host 'Host fold/status-bar models do not establish ART hook activation, native fold dispatch, app rendering or physical-device behavior.'

@@ -13,11 +13,13 @@ import com.android.server.wm.ActivityTaskManagerService;
 import com.android.server.wm.ActivityTaskManagerServiceStub;
 import com.android.server.wm.BoundsCompatUtils;
 import com.android.server.wm.MiuiSizeCompatService;
+import com.android.server.wm.InsetsPolicy;
 import com.android.server.wm.Task;
 import com.android.server.wm.WindowProcessController;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 import java.io.File;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -37,12 +39,18 @@ public final class WidthModeRegression {
         if (args.length != 2) throw new IllegalArgumentException("scenario and manifest path required");
         switch (args[0]) {
             case "width-policy-geometry": geometry(); break;
+            case "width-legacy-21": legacy21(); break;
+            case "width-legacy-22": android.os.Build.VERSION.INCREMENTAL = UnlockPolicy.BUILD_22; legacyWidth(); break;
             case "width-native-wide": nativeWide(); break;
             case "width-context-optouts": contextOptouts(); break;
             case "width-endpoint-persistence": endpointPersistence(args[1]); break;
             case "width-registration-failures": registrationFailures(); break;
             case "width-refresh-targets": refreshTargets(); break;
             case "width-refresh-failures": refreshFailures(); break;
+            case "split-endpoint-defaults": splitDefaults(args[1]); break;
+            case "split-endpoint-requests": splitRequests(); break;
+            case "split-endpoint-storage": splitStorage(); break;
+            case "split-endpoint-refresh": splitRefresh(); break;
             default: throw new IllegalArgumentException(args[0]);
         }
         System.out.println("PASS host scenario: " + args[0]);
@@ -57,17 +65,21 @@ public final class WidthModeRegression {
 
     private static final class Harness implements AutoCloseable {
         final WidthModeController controller;
+        final SplitStatusBarController split;
         final MiuiSizeCompatService service = new MiuiSizeCompatService();
         final ActivityTaskManagerService atms = new ActivityTaskManagerService();
         final BoundsCompatUtils utils = new BoundsCompatUtils();
         final Context context;
+        final InsetsPolicy insets = new InsetsPolicy();
         final List<XC_MethodHook.Unhook> hooks = new ArrayList<>();
         Harness() throws Exception { this(new ContentResolver()); }
         Harness(ContentResolver store) throws Exception {
             context = new Context(store);
             service.mContext = context;
             atms.folded = true;
-            controller = new WidthModeController(WidthModeRegression.class.getClassLoader());
+            atms.mRootWindowContainer.defaultDisplay = insets.mDisplayContent;
+            split = new SplitStatusBarController(WidthModeRegression.class.getClassLoader());
+            controller = new WidthModeController(WidthModeRegression.class.getClassLoader(), split);
             hooks.add(XposedBridge.hookMethod(controller.ratioTarget, controller.ratioCallback));
             hooks.add(XposedBridge.hookMethod(controller.scaleTarget, controller.scaleCallback));
             hooks.add(XposedBridge.hookMethod(controller.readyTarget, controller.readyCallback));
@@ -82,6 +94,16 @@ public final class WidthModeRegression {
         BroadcastReceiver request(boolean write, int mode) {
             return context.dispatchOrdered(new Intent(WidthModePolicy.ACTION).setPackage("android")
                 .putExtra(WidthModePolicy.EXTRA_WRITE, write).putExtra(WidthModePolicy.EXTRA_MODE, mode));
+        }
+        BroadcastReceiver splitRequest(boolean write, int mode) {
+            return context.dispatchOrdered(new Intent(WidthModePolicy.ACTION).setPackage("android")
+                .putExtra(SplitStatusBarPolicy.EXTRA_WRITE, write).putExtra(SplitStatusBarPolicy.EXTRA_MODE, mode));
+        }
+        Bundle splitOk(boolean write, int mode) {
+            BroadcastReceiver response = splitRequest(write, mode);
+            require(response.getResultCode() == Activity.RESULT_OK && response.getResultExtras(false) != null,
+                "Valid split request must produce an ordered result with both modes");
+            return response.getResultExtras(false);
         }
         Bundle ok(boolean write, int mode) {
             BroadcastReceiver response = request(write, mode);
@@ -105,6 +127,49 @@ public final class WidthModeRegression {
         }
         for (float ratio : new float[]{0f,-1f,Float.NaN,Float.POSITIVE_INFINITY}) {
             require(WidthModePolicy.legacyScale(1168,1712,ratio) == -1f, "Invalid ratio must opt out");
+        }
+    }
+
+    private static void legacy21() throws Throwable {
+        android.os.Build.VERSION.INCREMENTAL = UnlockPolicy.BUILD_21;
+        legacyWidth();
+    }
+
+    private static void legacyWidth() throws Throwable {
+        try (Harness h = new Harness()) {
+            h.ready();
+            require(h.controller.legacyRatioApi
+                    && h.controller.ratioTarget.getName().equals("getAspectRatioByPackage"),
+                    "21 must select the old package query without requiring the newer default-ratio method");
+            Method target = h.controller.ratioTarget;
+            near((Float) XposedBridge.invokeHooked(target, h.service, PACKAGE, 0), 20f / 9f,
+                    "Default narrow mode replaces only an enabled ordinary 16:9 query");
+            h.utils.forcedScale = WidthModePolicy.legacyScale(1168, 1712, 20f / 9f);
+            near(h.scale(PACKAGE, OUTER, true, 20f / 9f), 1712f / 2400f,
+                    "21 narrow mode uses the same capped-width geometry as 26");
+            h.utils.forcedScale = 0.65f;
+            near(h.scale(PACKAGE, OUTER, true, 20f / 9f), 0.65f,
+                    "Independent scale results must not be mistaken for the ordinary fallback");
+            for (float value : new float[]{-1f, 0f, 4f / 3f, 2.4f}) {
+                h.service.legacyPackageRatio = value;
+                near((Float) XposedBridge.invokeHooked(target, h.service, PACKAGE, 0), value,
+                        "Disabled and custom native ratios must survive: " + value);
+            }
+            h.service.legacyPackageRatio = 16f / 9f;
+            h.service.gameRatio = 16f / 9f;
+            near((Float) XposedBridge.invokeHooked(target, h.service, PACKAGE, 0), 16f / 9f,
+                    "A game with the same numerical ratio must retain its independent policy");
+            h.service.gameRatio = -1f;
+            near((Float) XposedBridge.invokeHooked(target, h.service, "com.miui.home", 0), 16f / 9f,
+                    "Protected packages retain their native ratio");
+            h.ok(true, 1);
+            near((Float) XposedBridge.invokeHooked(target, h.service, PACKAGE, 0), 16f / 9f,
+                    "Wide selection restores 21 native width without changing saved app ratios");
+            require(h.service.settingsWrites == 0, "21 width selection must not rewrite native per-app settings");
+            h.ok(true, 0);
+            h.atms.folded = false;
+            near((Float) XposedBridge.invokeHooked(target, h.service, PACKAGE, 0), 16f / 9f,
+                    "Inner-screen package queries must retain the native result");
         }
     }
 
@@ -321,6 +386,191 @@ public final class WidthModeRegression {
             require(inner.getInt("refreshed")==0 && inner.getInt("deferred")==0
                     && a.mBoundsCompatControllerStub.mGlobalScale==cache,
                 "An inner-screen selection must persist for later outer use without refreshing inner activities");
+        }
+    }
+
+    private static void ack(Bundle response, int width, int split, String explanation) {
+        require(response.getInt(WidthModePolicy.EXTRA_MODE, -1) == width
+                && response.getInt(SplitStatusBarPolicy.EXTRA_MODE, -1) == split,
+            "Every successful ACK must report both current modes: " + explanation);
+    }
+
+    private static void splitDefaults(String manifestPath) throws Throwable {
+        require(SplitStatusBarPolicy.ENABLED == 1 && SplitStatusBarPolicy.DISABLED == 0
+                && SplitStatusBarPolicy.DEFAULT == 1 && SplitStatusBarPolicy.valid(0) && SplitStatusBarPolicy.valid(1),
+            "Split visibility has a default-on binary policy");
+        for (int value : new int[]{-1, 2, Integer.MIN_VALUE, Integer.MAX_VALUE}) {
+            require(!SplitStatusBarPolicy.valid(value), "Invalid split values must be rejected: " + value);
+        }
+        require("fold_aspect_unlock_split_status_bar".equals(SplitStatusBarPolicy.SETTING)
+                && "split_mode".equals(SplitStatusBarPolicy.EXTRA_MODE)
+                && "split_write".equals(SplitStatusBarPolicy.EXTRA_WRITE),
+            "Split control must use its own stable setting and intent/result keys");
+        ContentResolver store = new ContentResolver();
+        try (Harness h = new Harness(store)) {
+            require(h.split.getMode() == SplitStatusBarPolicy.ENABLED, "A fresh helper starts enabled before registration");
+            h.ready(); h.ready();
+            ack(h.ok(false, -999), 0, 1, "new installation default");
+            require(store.writes == 0 && store.globalInts.isEmpty() && h.context.registrations == 1
+                    && WidthModePolicy.PERMISSION.equals(h.context.receiverPermission)
+                    && h.context.receiverFlags == Context.RECEIVER_EXPORTED
+                    && h.context.receiverHandler == h.service.mFgHandler,
+                "Defaults/query must not write storage or register a second/unprotected endpoint");
+            assertSignaturePermission(manifestPath);
+            Bundle disabled = h.splitOk(true, 0);
+            ack(disabled, 0, 0, "persisted split off");
+            require(h.split.getMode() == 0 && store.writes == 1 && store.globalInts.size() == 1
+                    && store.globalInts.get(SplitStatusBarPolicy.SETTING) == 0
+                    && !store.globalInts.containsKey(WidthModePolicy.SETTING),
+                "Disabling split status must persist only its independent key");
+        }
+        try (Harness restarted = new Harness(store)) {
+            require(restarted.split.getMode() == 1, "A new helper must not retain another instance's runtime state");
+            restarted.ready();
+            ack(restarted.splitOk(false, -999), 0, 0, "split preference reloaded after controller recreation");
+            require(restarted.split.getMode() == 0 && store.writes == 1,
+                "Registration reloads persisted off without rewriting settings");
+        }
+        store.globalInts.put(SplitStatusBarPolicy.SETTING, 77);
+        try (Harness invalid = new Harness(store)) {
+            invalid.ready();
+            ack(invalid.ok(false, 0), 0, 1, "invalid persisted split value");
+            require(invalid.split.getMode() == 1 && store.globalInts.get(SplitStatusBarPolicy.SETTING) == 77
+                    && store.writes == 1,
+                "Invalid persisted state falls back to enabled without silently rewriting storage");
+        }
+    }
+
+    private static void splitRequests() throws Throwable {
+        try (Harness h = new Harness()) {
+            h.ready();
+            List<Intent> rejected = new ArrayList<>();
+            rejected.add(new Intent(WidthModePolicy.ACTION).putExtra(WidthModePolicy.EXTRA_WRITE, true)
+                .putExtra(WidthModePolicy.EXTRA_MODE, 1).putExtra(SplitStatusBarPolicy.EXTRA_WRITE, true)
+                .putExtra(SplitStatusBarPolicy.EXTRA_MODE, 0));
+            rejected.add(new Intent(WidthModePolicy.ACTION).putExtra(WidthModePolicy.EXTRA_WRITE, true));
+            rejected.add(new Intent(WidthModePolicy.ACTION).putExtra(SplitStatusBarPolicy.EXTRA_WRITE, true));
+            rejected.add(new Intent(WidthModePolicy.ACTION).putExtra(SplitStatusBarPolicy.EXTRA_WRITE, true)
+                .putExtra(SplitStatusBarPolicy.EXTRA_MODE, true));
+            for (int invalid : new int[]{-1, 2, Integer.MIN_VALUE, Integer.MAX_VALUE}) {
+                rejected.add(new Intent(WidthModePolicy.ACTION).putExtra(SplitStatusBarPolicy.EXTRA_WRITE, true)
+                    .putExtra(SplitStatusBarPolicy.EXTRA_MODE, invalid));
+            }
+            rejected.add(new Intent("unrelated.ACTION").putExtra(SplitStatusBarPolicy.EXTRA_WRITE, true)
+                .putExtra(SplitStatusBarPolicy.EXTRA_MODE, 0));
+            for (Intent request : rejected) {
+                BroadcastReceiver response = h.context.dispatchOrdered(request.setPackage("android"));
+                require(response.getResultCode() != Activity.RESULT_OK && response.getResultExtras(false) == null
+                        && h.split.getMode() == 1 && h.context.getContentResolver().writes == 0
+                        && h.insets.mPolicy.attributeUpdates == 0 && h.insets.mStateController.insetNotifications == 0,
+                    "Invalid, incomplete, mixed or wrong-action writes must not save, refresh or ACK success");
+            }
+            Bundle wide = h.ok(true, 1);
+            ack(wide, 1, 1, "width write leaves split default enabled");
+            ActivityRecord app = new ActivityRecord();
+            near(h.ratio(app), 16f / 9f, "Width selection must remain active before split toggle");
+            Bundle split = h.splitOk(true, 0);
+            ack(split, 1, 0, "split write leaves width selection intact");
+            near(h.ratio(app), 16f / 9f, "Disabling split status must not change the outer-screen width ratio");
+            near(h.scale(PACKAGE, OUTER, true, 16f / 9f), 1712f / 2076f,
+                "Disabling split status must not change the outer-screen width scale");
+            require(h.context.getContentResolver().globalInts.size() == 2
+                    && h.context.getContentResolver().globalInts.get(WidthModePolicy.SETTING) == 1
+                    && h.context.getContentResolver().globalInts.get(SplitStatusBarPolicy.SETTING) == 0,
+                "The two controls must persist independent values");
+            ack(h.splitOk(true, 1), 1, 1, "split on does not reset wide mode");
+            ack(h.ok(true, 0), 0, 1, "narrow mode does not reset split on");
+        }
+    }
+
+    private static void splitStorage() throws Throwable {
+        try (Harness h = new Harness()) {
+            h.ready();
+            ContentResolver store = h.context.getContentResolver();
+            store.rejectWrites = true;
+            require(h.splitRequest(true, 0).getResultCode() != Activity.RESULT_OK && h.split.getMode() == 1
+                    && store.writes == 0 && h.insets.mPolicy.attributeUpdates == 0,
+                "A rejected split setting write must not change runtime mode or refresh");
+            store.rejectWrites = false;
+            store.writeFailure = new IllegalStateException("setting provider failure");
+            require(h.splitRequest(true, 0).getResultCode() != Activity.RESULT_OK && h.split.getMode() == 1
+                    && store.writes == 0 && h.insets.mStateController.insetNotifications == 0,
+                "A thrown setting-provider failure must retain runtime mode and refuse success ACK");
+            store.writeFailure = null;
+            Object lock = h.atms.mGlobalLock;
+            h.atms.mGlobalLock = null;
+            require(h.splitRequest(true, 0).getResultCode() != Activity.RESULT_OK && h.split.getMode() == 1
+                    && store.writes == 0,
+                "An unavailable WM lock must be rejected before persistence");
+            h.atms.mGlobalLock = (com.android.server.wm.WindowManagerGlobalLock) lock;
+            ack(h.splitOk(true, 0), 0, 0, "storage recovered");
+            require(store.writes == 1 && h.split.getMode() == 0,
+                "A later valid write must succeed after storage/lock failure");
+        }
+    }
+
+    private static void splitRefresh() throws Throwable {
+        try (Harness h = new Harness()) {
+            h.ready();
+            List<String> events = new ArrayList<>();
+            h.insets.mPolicy.beforeAttributeUpdate = () -> {
+                require(Thread.holdsLock(h.atms.mGlobalLock), "Split reevaluation must hold the native WM lock");
+                events.add("attributes");
+            };
+            h.insets.mStateController.beforeNotifyInsets = () -> {
+                require(Thread.holdsLock(h.atms.mGlobalLock), "Split inset notification must hold the same native WM lock");
+                events.add("insets");
+            };
+            h.insets.mDisplayContent.configuration.screenType = 1;
+            Bundle unchanged = h.splitOk(true, 1);
+            ack(unchanged, 0, 1, "same-mode outer-screen reevaluation");
+            require(unchanged.getInt("refreshed") == 1 && unchanged.getInt("deferred") == 0
+                    && events.equals(Arrays.asList("attributes", "insets"))
+                    && h.context.getContentResolver().writes == 0,
+                "Even a same-mode/outer-screen choice must reevaluate then notify, without writing an unchanged preference");
+            events.clear();
+            h.insets.mPolicy.attributeUpdateFailure = new IllegalStateException("native attribute update failure");
+            Bundle failed = h.splitOk(true, 0);
+            ack(failed, 0, 0, "saved but native reevaluation failed");
+            require(failed.getInt("refreshed") == 0 && failed.getInt("deferred") == 1
+                    && h.split.getMode() == 0 && h.context.getContentResolver().globalInts.get(SplitStatusBarPolicy.SETTING) == 0
+                    && events.equals(Arrays.asList("attributes")),
+                "Refresh failure must ACK the saved/runtime mode with deferred=1 and must not run the later notification");
+            int writes = h.context.getContentResolver().writes;
+            h.insets.mPolicy.attributeUpdateFailure = null;
+            events.clear();
+            Bundle retry = h.splitOk(true, 0);
+            require(retry.getInt("refreshed") == 1 && retry.getInt("deferred") == 0
+                    && h.context.getContentResolver().writes == writes
+                    && events.equals(Arrays.asList("attributes", "insets")),
+                "Same-mode retry must rerun native reevaluation/notification without another settings write");
+            h.insets.mStateController.notifyInsetsFailure = new IllegalStateException("native inset notification failure");
+            events.clear();
+            Bundle notificationFailure = h.splitOk(true, 1);
+            ack(notificationFailure, 0, 1, "saved but inset notification failed");
+            require(notificationFailure.getInt("deferred") == 1 && notificationFailure.getInt("refreshed") == 0
+                    && events.equals(Arrays.asList("attributes", "insets")),
+                "A late notification failure must retain the saved mode and report deferred rather than success");
+        }
+        Map<String, Consumer<Harness>> unavailable = new LinkedHashMap<>();
+        unavailable.put("missing root", h -> h.atms.mRootWindowContainer = null);
+        unavailable.put("missing default display", h -> h.atms.mRootWindowContainer.defaultDisplay = null);
+        unavailable.put("default display lookup failure", h -> h.atms.mRootWindowContainer.failGetDefaultDisplay = true);
+        unavailable.put("missing display owner", h -> h.insets.mDisplayContent.insetsPolicy = null);
+        unavailable.put("missing display policy", h -> h.insets.mPolicy = null);
+        unavailable.put("missing state controller", h -> h.insets.mStateController = null);
+        for (Map.Entry<String, Consumer<Harness>> entry : unavailable.entrySet()) {
+            try (Harness h = new Harness()) {
+                h.ready();
+                com.android.server.wm.DisplayPolicy observedPolicy = h.insets.mPolicy;
+                com.android.server.wm.InsetsStateController observedState = h.insets.mStateController;
+                entry.getValue().accept(h);
+                Bundle response = h.splitOk(true, 0);
+                ack(response, 0, 0, entry.getKey());
+                require(response.getInt("refreshed") == 0 && response.getInt("deferred") == 1
+                        && observedPolicy.attributeUpdates == 0 && observedState.insetNotifications == 0,
+                    "Gather all refresh dependencies before any native call: " + entry.getKey());
+            }
         }
     }
 }

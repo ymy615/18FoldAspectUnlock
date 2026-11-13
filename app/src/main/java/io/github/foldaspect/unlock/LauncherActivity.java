@@ -21,12 +21,16 @@ import android.os.Handler;
 import android.os.Looper;
 
 public final class LauncherActivity extends Activity {
+    private static final int QUERY_SETTINGS = 0, WRITE_WIDTH = 1, WRITE_SPLIT = 2;
     private LinearLayout content;
-    private Switch widthSwitch;
-    private TextView widthStatus;
+    private Switch widthSwitch, splitSwitch;
+    private TextView widthStatus, splitStatus;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
-    private boolean renderingWidth;
-    private int widthRequest;
+    private boolean renderingSettings;
+    private int settingsRequest;
+    private int confirmedWidth = WidthModePolicy.NARROW;
+    private int confirmedSplit = SplitStatusBarPolicy.DEFAULT;
+    private Runnable settingsTimeout;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         ScrollView scroll = new ScrollView(this);
@@ -59,11 +63,11 @@ public final class LauncherActivity extends Activity {
         }
         page.requestApplyInsets();
         text("画幅切换解锁", 28, Color.rgb(24, 35, 50));
-        text("小米 18 Fold · 0.3.3 测试版", 15, Color.DKGRAY);
+        text("小米 18 Fold · 0.4.1 测试版", 15, Color.DKGRAY);
         boolean supported = UnlockPolicy.supports(Build.DEVICE, Build.VERSION.SDK_INT, Build.VERSION.INCREMENTAL);
         text(supported ? "系统版本匹配" : "当前系统版本不在适配范围，模块不会加载", 19,
                 supported ? Color.rgb(20, 110, 75) : Color.rgb(165, 60, 40));
-        text("当前版本：" + Build.VERSION.INCREMENTAL + "\n适配版本：" + UnlockPolicy.TARGET_BUILD, 14, Color.DKGRAY);
+        text("当前版本：" + Build.VERSION.INCREMENTAL + "\n适配版本：" + UnlockPolicy.supportedBuildsText(), 14, Color.DKGRAY);
         text("画幅宽度", 21, Color.BLACK);
         widthSwitch = new Switch(this);
         widthSwitch.setText("使用旧版宽版");
@@ -77,15 +81,33 @@ public final class LauncherActivity extends Activity {
         content.addView(widthStatus);
         text("关闭：新版窄版（20:9）。开启：旧版宽版（16:9）。这是所有应用共用的总开关，每个应用原来的画幅开关仍通过控制中心操作。", 15, Color.DKGRAY);
         widthSwitch.setOnCheckedChangeListener((button, checked) -> {
-            if (!renderingWidth) requestWidth(true, checked ? WidthModePolicy.WIDE : WidthModePolicy.NARROW);
+            if (!renderingSettings) requestSettings(WRITE_WIDTH, checked ? WidthModePolicy.WIDE : WidthModePolicy.NARROW);
+        });
+        text("分屏状态栏", 21, Color.BLACK);
+        splitSwitch = new Switch(this);
+        splitSwitch.setText("内屏左右分屏显示状态栏");
+        splitSwitch.setTextSize(18);
+        splitSwitch.setPadding(0, 16, 0, 16);
+        splitSwitch.setChecked(confirmedSplit == SplitStatusBarPolicy.ENABLED);
+        splitSwitch.setEnabled(false);
+        content.addView(splitSwitch);
+        splitStatus = new TextView(this);
+        splitStatus.setTextSize(15);
+        splitStatus.setPadding(0, 8, 0, 20);
+        splitStatus.setText("等待确认模块状态，开关暂不可用。");
+        content.addView(splitStatus);
+        text("默认开启。切换后立即刷新，重启后保留。关闭后恢复系统原生分屏状态栏行为，画幅宽窄和外屏 90 像素状态栏样式不受影响。", 15, Color.DKGRAY);
+        splitSwitch.setOnCheckedChangeListener((button, checked) -> {
+            if (!renderingSettings) requestSettings(WRITE_SPLIT,
+                    checked ? SplitStatusBarPolicy.ENABLED : SplitStatusBarPolicy.DISABLED);
         });
         Button refresh = new Button(this);
         refresh.setText("刷新模块状态");
-        refresh.setOnClickListener(v -> requestWidth(false, WidthModePolicy.NARROW));
+        refresh.setOnClickListener(v -> requestSettings(QUERY_SETTINGS, 0));
         content.addView(refresh);
         text("启用方法", 21, Color.BLACK);
         text("1. 在 LSPosed 中开启“画幅切换解锁”。\n2. 作用域勾选“系统框架”和“系统界面”。\n3. 完整重启手机。\n4. 打开应用，在控制中心点击原有的“画幅切换”。", 17, Color.DKGRAY);
-        text("“系统版本匹配”只表示处于适配范围；上方画幅宽度状态会检查模块是否已在系统框架中生效。", 14, Color.DKGRAY);
+        text("“系统版本匹配”只表示处于适配范围；上方两个设置的状态会检查模块是否已在系统框架中生效。", 14, Color.DKGRAY);
         Button manager = new Button(this);
         manager.setText("打开 LSPosed");
         manager.setOnClickListener(v -> {
@@ -101,7 +123,7 @@ public final class LauncherActivity extends Activity {
         text("外屏画幅模式使用 20% 不透明深色底和白色图标，状态栏目标高度为 90 像素，图标尺寸保持不变。较大字号会保留足够高度。退出画幅后恢复原有样式。", 17, Color.DKGRAY);
         text("紧凑高度和更浅底色需要勾选“系统界面”作用域。摄像头安全区保留，部分应用仍会按安全区预留顶部空间。", 14, Color.DKGRAY);
         text("左右分屏保留状态栏", 21, Color.BLACK);
-        text("内屏使用左右分屏时继续显示时间、电量和网络图标；关闭一侧应用回到桌面时，只要另一侧应用仍可见，状态栏也继续显示。恢复应用所需的状态栏边距，使用系统原有内屏高度；完全退出分屏后回到原有行为。", 17, Color.DKGRAY);
+        text("开启上方“分屏时显示状态栏”后，内屏左右分屏会继续显示时间、电量和网络图标；关闭一侧应用回到桌面时，只要另一侧应用仍可见，状态栏也继续显示。恢复应用所需的状态栏边距，使用系统原有内屏高度；关闭开关或完全退出分屏后回到系统原生行为。", 17, Color.DKGRAY);
         text("解除哪些限制", 21, Color.BLACK);
         text("解除应用禁用名单、普通预装应用判定，以及拍照、扫码等页面的强制全屏名单。系统保留原有的画幅切换按钮和比例计算。", 17, Color.DKGRAY);
         text("使用范围", 21, Color.BLACK);
@@ -112,46 +134,109 @@ public final class LauncherActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
-        requestWidth(false, WidthModePolicy.NARROW);
+        requestSettings(QUERY_SETTINGS, 0);
     }
 
-    private void requestWidth(boolean write, int mode) {
-        if (widthSwitch == null) return;
-        final int request = ++widthRequest;
+    @Override protected void onDestroy() {
+        settingsRequest++;
+        cancelSettingsTimeout();
+        super.onDestroy();
+    }
+
+    private void requestSettings(int operation, int mode) {
+        if (widthSwitch == null || splitSwitch == null) return;
+        final int request = ++settingsRequest;
+        cancelSettingsTimeout();
+        // Keep showing the last confirmed values while either request is pending.
+        renderConfirmedSettings();
         widthSwitch.setEnabled(false);
+        splitSwitch.setEnabled(false);
         if (!UnlockPolicy.supports(Build.DEVICE, Build.VERSION.SDK_INT, Build.VERSION.INCREMENTAL)) {
             widthStatus.setText("当前固件未适配，宽窄开关暂不可用。");
+            splitStatus.setText("当前固件未适配，分屏开关暂不可用。");
             return;
         }
-        widthStatus.setText(write ? "正在切换…" : "正在检查模块…");
+        widthStatus.setText(operation == WRITE_WIDTH ? "正在保存画幅宽度…" : "正在确认画幅宽度…");
+        splitStatus.setText(operation == WRITE_SPLIT ? "正在保存分屏状态栏设置…" : "正在确认分屏状态栏设置…");
         Intent intent = new Intent(WidthModePolicy.ACTION).setPackage("android");
-        intent.putExtra(WidthModePolicy.EXTRA_WRITE, write);
-        intent.putExtra(WidthModePolicy.EXTRA_MODE, mode);
-        Runnable timeout = () -> {
-            if (request != widthRequest || isDestroyed()) return;
-            widthRequest++;
-            widthStatus.setText("模块尚未响应。请在 LSPosed 启用模块并完整重启，再点击“刷新模块状态”。");
+        if (operation == WRITE_WIDTH) {
+            intent.putExtra(WidthModePolicy.EXTRA_WRITE, true);
+            intent.putExtra(WidthModePolicy.EXTRA_MODE, mode);
+        } else if (operation == WRITE_SPLIT) {
+            intent.putExtra(SplitStatusBarPolicy.EXTRA_WRITE, true);
+            intent.putExtra(SplitStatusBarPolicy.EXTRA_MODE, mode);
+        }
+        settingsTimeout = () -> {
+            if (request != settingsRequest || isDestroyed()) return;
+            settingsRequest++;
+            settingsTimeout = null;
+            showSettingsUnavailable("模块尚未响应。请在 LSPosed 启用模块并完整重启，再点击“刷新模块状态”。");
         };
-        mainHandler.postDelayed(timeout, 6000);
-        sendOrderedBroadcast(intent, null, new BroadcastReceiver() {
+        mainHandler.postDelayed(settingsTimeout, 6000);
+        BroadcastReceiver response = new BroadcastReceiver() {
             @Override public void onReceive(Context context, Intent received) {
-                if (request != widthRequest || isDestroyed()) return;
-                mainHandler.removeCallbacks(timeout);
+                if (request != settingsRequest || isDestroyed()) return;
+                cancelSettingsTimeout();
                 Bundle result = getResultExtras(false);
                 int current = result == null ? -1 : result.getInt(WidthModePolicy.EXTRA_MODE, -1);
                 if (getResultCode() != RESULT_OK || !WidthModePolicy.valid(current)) {
-                    widthStatus.setText("模块尚未生效。请在 LSPosed 启用模块并完整重启，再刷新状态。");
+                    showSettingsUnavailable("模块尚未生效。请在 LSPosed 启用模块并完整重启，再刷新状态。");
                     return;
                 }
-                renderingWidth = true;
-                widthSwitch.setChecked(current == WidthModePolicy.WIDE);
-                renderingWidth = false;
+                confirmedWidth = current;
+                int splitMode = result.getInt(SplitStatusBarPolicy.EXTRA_MODE, -1);
+                boolean splitAvailable = SplitStatusBarPolicy.valid(splitMode);
+                if (splitAvailable) confirmedSplit = splitMode;
+                renderConfirmedSettings();
                 widthSwitch.setEnabled(true);
+                splitSwitch.setEnabled(splitAvailable);
+                boolean deferred = result.getInt("deferred", 0) > 0;
                 String selected = current == WidthModePolicy.WIDE ? "旧版宽版（16:9）" : "新版窄版（20:9）";
-                widthStatus.setText("当前全局模式：" + selected + "。模块已响应，选择会在重启后保留。"
-                        + (write && result.getInt("deferred", 0) > 0 ? "部分应用需要重新打开后应用新宽度。" : ""));
+                widthStatus.setText("当前：" + selected + "。重启后保留。"
+                        + (operation == WRITE_WIDTH && deferred ? "部分应用需要重新打开后应用新宽度。" : ""));
+                if (splitAvailable) {
+                    splitStatus.setText((splitMode == SplitStatusBarPolicy.ENABLED
+                            ? "当前：开启，分屏时显示状态栏。" : "当前：关闭，跟随系统原生分屏行为。")
+                            + "重启后保留。"
+                            + (operation == WRITE_SPLIT && deferred ? "部分窗口需要重新打开后更新。" : ""));
+                } else if (!result.containsKey(SplitStatusBarPolicy.EXTRA_MODE)) {
+                    splitStatus.setText("系统仍运行旧版模块，宽度可继续调整。分屏开关暂不可用，请完整重启手机后刷新状态。");
+                } else {
+                    splitStatus.setText("未能确认分屏设置，开关暂不可用。请完整重启手机后刷新状态。");
+                }
             }
-        }, mainHandler, RESULT_CANCELED, null, null);
+        };
+        try {
+            sendOrderedBroadcast(intent, null, response, mainHandler, RESULT_CANCELED, null, null);
+        } catch (RuntimeException error) {
+            settingsRequest++;
+            cancelSettingsTimeout();
+            showSettingsUnavailable("无法联系模块。请确认已在 LSPosed 启用并完整重启，再刷新状态。");
+        }
+    }
+
+    private void renderConfirmedSettings() {
+        renderingSettings = true;
+        try {
+            widthSwitch.setChecked(confirmedWidth == WidthModePolicy.WIDE);
+            splitSwitch.setChecked(confirmedSplit == SplitStatusBarPolicy.ENABLED);
+        } finally {
+            renderingSettings = false;
+        }
+    }
+
+    private void cancelSettingsTimeout() {
+        if (settingsTimeout != null) {
+            mainHandler.removeCallbacks(settingsTimeout);
+            settingsTimeout = null;
+        }
+    }
+
+    private void showSettingsUnavailable(String message) {
+        widthSwitch.setEnabled(false);
+        splitSwitch.setEnabled(false);
+        widthStatus.setText(message);
+        splitStatus.setText("尚未确认分屏设置，开关暂不可用。");
     }
 
     private void text(String value, int size, int color) {

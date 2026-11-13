@@ -1,10 +1,20 @@
 # 18FoldAspectUnlock · 画幅切换解锁
 
-为 **Xiaomi 18 Fold** 制作的 LSPosed 模块，扩展控制中心原有“画幅切换”的应用支持范围。当前版本 **0.3.3 测试版**，适配 OS4.0.26.0.XPNCNXM。
+为 **Xiaomi 18 Fold** 制作的 LSPosed 模块，扩展控制中心原有“画幅切换”的应用支持范围。当前版本 **0.4.1 测试版**，同一 APK 支持 OS4.0.21.0、OS4.0.22.0 和 OS4.0.26.0（均为 XPNCNXM）。
 
-[v0.3.3 发布页与 APK](https://github.com/ymy615/18FoldAspectUnlock/releases/tag/v0.3.3) · [全部发布记录](https://github.com/ymy615/18FoldAspectUnlock/releases)
+[v0.4.1 发布页与 APK](https://github.com/ymy615/18FoldAspectUnlock/releases/tag/v0.4.1) · [全部已发布版本](https://github.com/ymy615/18FoldAspectUnlock/releases)
 
-发布版本的 APK 位于仓库首页右侧 **Releases → 对应版本 → Assets**。OS4.0.21.0 请使用 v0.2.0；不要将旧固件版本直接用于新 OTA。
+APK 位于仓库首页右侧 **Releases → v0.4.1 → Assets**，下载 `FoldAspectUnlock-0.4.1.apk`。相同签名的旧版可以直接覆盖升级，升级后完整重启手机。
+
+## 0.4.1 图标
+
+新增深蓝底、银白与青色折叠屏及双向画幅箭头的应用图标。使用 Android 自适应图标，支持圆形裁切和系统主题图标的单色显示。功能与 0.4.0 相同。
+
+## 0.4.0 新功能
+
+- **三个系统版本共用安装包**：严格核对 `lhasa`、Android 17/API 37 及完整版本号。21/22 使用旧版画幅查询接口，26 使用新版默认比例接口；加载前仍检查全部所需方法及字段。
+- **内屏左右分屏显示状态栏开关**：模块主页提供独立开关，默认开启。关闭后恢复系统原生分屏状态栏行为，重新开启恢复模块处理；保存后刷新当前窗口，重启后保留。
+- **独立保存与状态确认**：分屏开关不改变画幅宽窄及每个应用原来的画幅选择。系统框架未加载新版本时，显示等待重启并禁用分屏开关。
 
 ## 0.3.3 修复
 
@@ -44,7 +54,7 @@
 | 项目 | 当前要求 |
 | --- | --- |
 | 手机 | Xiaomi 18 Fold（代号 `lhasa`） |
-| 系统 | HyperOS **OS4.0.26.0.XPNCNXM**（旧 21 版使用 v0.2.0） |
+| 系统 | HyperOS **OS4.0.21.0.XPNCNXM / OS4.0.22.0.XPNCNXM / OS4.0.26.0.XPNCNXM** |
 | Android | **17 / API 37** |
 | 框架 | 已正常运行的 LSPosed，兼容 legacy Xposed API |
 | 作用域 | **系统框架（android）＋系统界面（com.android.systemui）** |
@@ -59,18 +69,19 @@
 4. **完整重启手机**。
 5. 在外屏打开应用，保持竖屏全屏，从控制中心点击原有的 **画幅切换**。展开内屏会恢复默认全屏，折回会恢复之前的外屏选择。
 6. 需要调整宽度时，打开模块主页，切换 **使用旧版宽版**。第一次启用模块需要重启，此后宽窄选择无需每次整机重启。
+7. 在模块主页切换 **内屏左右分屏显示状态栏**，默认开启。首次升级至 0.4.0 需要完整重启，此后切换会即时刷新；原生刷新失败时会提示重新打开窗口。
 
 模块启动页提供版本检查与使用说明。“系统版本匹配”不代表 Hook 已激活；可在 LSPosed 日志中检查：
 
 ```text
-[FoldAspectUnlock] ACTIVE 17/17 hooks; inner=default; outer=preserved; statusBar=semi-transparent; insets=corrected; width=selectable; splitStatusBar=visible; build=OS4.0.26.0.XPNCNXM
+[FoldAspectUnlock] ACTIVE 17/17 hooks; inner=default; outer=preserved; statusBar=semi-transparent; insets=corrected; width=selectable; splitStatusBar=selectable; build=OS4.0.26.0.XPNCNXM
 [FoldAspectUnlock] WIDTH READY; mode=narrow
 [FoldAspectUnlock] UI ACTIVE 9/9 hooks; height=90px; scrim=20%
 ```
 
 ## 实际作用
 
-当前适配固件包含 19 条应用禁用规则和 3 条页面强制全屏规则。模块解除这些限制，并放行普通应用 UID 的预装应用。实际画幅开关仍由系统原有功能完成。
+26 固件包含 19 条应用禁用规则和 3 条页面强制全屏规则；21 的历史规则为 61 条和 21 条。模块解除匹配固件的名单限制，并放行普通应用 UID 的预装应用。实际画幅开关仍由系统原有功能完成。
 
 | Hook 方法 | 作用 |
 | --- | --- |
@@ -99,8 +110,8 @@
 ## 限制
 
 - 保留系统权限、锁屏、桌面/最近任务、助手/梦境、主显示屏、竖屏和全屏窗口条件。
-- 固定横屏、分屏及已有独立游戏比例配置的画幅仍受系统原有规则约束；内屏左右分屏额外保留状态栏。
-- 窄版沿用系统特例，微信小程序仍为原生 16:9；专用云端缩放配置可优先于默认宽度算法。
+- 固定横屏、分屏及已有独立游戏比例配置的画幅仍受系统原有规则约束；内屏左右分屏在对应开关开启时额外保留状态栏。
+- 窄版沿用系统特例，26 上微信小程序仍为原生 16:9；21/22 中硬编码的特殊页面比例仍由固件决定。专用游戏、自定义比例和独立缩放配置不强行替换。
 - 内屏展开期间不提供普通画幅切换；若需在内屏手动开启画幅，此版本不适用。应用自有固定比例与独立游戏比例不在本次自动恢复范围内。
 - **解除限制不代表所有应用都能正确显示。** 相机预览、扫码和其他特殊页面需要实际测试。
 - 顶部留白修正限定外屏竖屏全屏的普通应用主窗口；分屏、游戏独立缩放、复杂系统栏边界数据和应用自己绘制的留白不强行修改。
@@ -108,6 +119,8 @@
 - 不修改系统文件、屏幕全局分辨率或其他应用 APK。
 
 ## 验证情况
+
+0.4.0：21、22、26 各分支所需的反射接口与提取固件逐项核对通过；22 的 system/system_ext 分区及所有操作块校验通过，SystemUI APK 与 21 完全一致。52 个独立主机回归场景及 26 固件 64 项策略检查通过，覆盖三个版本安装分支、旧版比例适配、开关默认值、关闭恢复、持久化及与宽度设置的独立性。签名、对齐和覆盖安装通过。接口核对与主机模型不能代替三个系统版本的手机实测；本次仅有 26 真机可用，21/22 尚待设备验证。
 
 0.3.3：编译、签名、57 项策略检查和 43 个独立主机回归通过。新增覆盖一侧应用＋另一侧桌面、焦点短暂为空、隐藏旧活动排除、桌面 Insets 保护、枚举异常和完全退出恢复。覆盖安装及 APK 哈希核验通过，已有宽窄和应用画幅设置未变化。用户已确认双应用分屏及“一侧应用＋另一侧桌面”的状态栏显示实测正常。
 
@@ -135,7 +148,7 @@
 
 ## 从源码构建
 
-环境：Windows、PowerShell 5.1 或更新版本、JDK 17+（本项目用 JDK 21 验证）、Android SDK Platform 37、build-tools 36.0.0。
+环境：Windows、PowerShell 5.1 或更新版本、JDK 17+（本项目用 JDK 21 验证）。默认使用 Android SDK Platform 37、build-tools 36.0.0；0.4.0 亦已用 Platform 35、build-tools 35.0.1 编译验证（运行设备仍须为 API 37）。
 
 ```powershell
 git clone https://github.com/ymy615/18FoldAspectUnlock.git
@@ -152,7 +165,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
 
 如果 SDK 平台目录名为 `android-37`，将 `-Platform` 改为该名称。首次构建会从发布者站点下载编译用 Xposed API 82，并校验固定 SHA-256。无需安装 Gradle。
 
-- APK 输出到 `dist/FoldAspectUnlock-0.3.3.apk`，同时生成 `.sha256` 文件。
+- APK 输出到 `dist/FoldAspectUnlock-0.4.1.apk`，同时生成 `.sha256` 文件。
 - 首次构建在 `.local/` 生成本地签名密钥。请保留密钥以便后续更新，**不要提交或分享**。
 - 自行构建的签名与 Releases 中的签名通常不同，不能直接覆盖另一签名的安装包。
 - Xposed API 仅用于编译，不会打包进 APK；来源和许可证见 [libs/SOURCE.txt](libs/SOURCE.txt)。

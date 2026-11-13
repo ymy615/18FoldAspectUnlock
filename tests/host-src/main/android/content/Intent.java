@@ -11,6 +11,7 @@ public final class Intent {
     public String getAction() { return action; }
     public Intent setPackage(String targetPackage) { this.targetPackage = targetPackage; return this; }
     public String getPackage() { return targetPackage; }
+    public boolean hasExtra(String key) { return extras.containsKey(key); }
     public Intent putExtra(String key, int value) { extras.put(key, value); return this; }
     public Intent putExtra(String key, boolean value) { extras.put(key, value); return this; }
     public boolean getBooleanExtra(String key, boolean fallback) {

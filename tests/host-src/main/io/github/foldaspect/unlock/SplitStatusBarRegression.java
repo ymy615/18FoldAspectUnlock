@@ -32,7 +32,19 @@ public final class SplitStatusBarRegression {
         if ("split-preflight".equals(args[0])) {
             preflight(args[1]);
         } else {
-            install(SplitStatusBarRegression.class.getClassLoader());
+            SplitStatusBarController toggle = null;
+            if ("split-enabled-policy".equals(args[0])) {
+                toggle = new SplitStatusBarController(SplitStatusBarRegression.class.getClassLoader());
+                XposedBridge.hookMethod(toggle.controlTarget, toggle.controlCallback);
+                XposedBridge.hookMethod(toggle.barVisibility, toggle.visibilityCallback);
+                XposedBridge.hookMethod(toggle.hideTypes, toggle.hideCallback);
+                XposedBridge.hookMethod(toggle.targetInsets, toggle.insetsCallback);
+                XposedBridge.hookMethod(toggle.dispatchTarget, toggle.dispatchCallback);
+                StatusBarAppearance appearance = new StatusBarAppearance(SplitStatusBarRegression.class.getClassLoader());
+                XposedBridge.hookMethod(appearance.opacityTarget, appearance);
+            } else {
+                install(SplitStatusBarRegression.class.getClassLoader());
+            }
             control = InsetsPolicy.class.getDeclaredMethod("getStatusControlTargetInner", WindowState.class, boolean.class);
             visibility = Class.forName("com.android.server.wm.InsetsPolicy$BarWindow").getDeclaredMethod("setVisible", boolean.class);
             hide = InsetsPolicy.class.getDeclaredMethod("hideSystemBars", int.class);
@@ -53,6 +65,7 @@ public final class SplitStatusBarRegression {
                 case "split-home-visible-scenes": homeVisibleScenes(); break;
                 case "split-home-guards": homeGuards(); break;
                 case "split-home-failures": homeFailures(); break;
+                case "split-enabled-policy": enabledPolicy(toggle); break;
                 default: throw new IllegalArgumentException(args[0]);
             }
         }
@@ -689,6 +702,52 @@ public final class SplitStatusBarRegression {
         homeActive(owner, remaining);
         require(XposedBridge.logs.stream().filter(s -> s.contains("SPLIT scene=app-and-home; visible-stage=confirmed")).count() == 1,
             "A later successful scan must still recover and report the actual Home scene");
+    }
+
+    private static void enabledPolicy(SplitStatusBarController toggle) throws Throwable {
+        require(toggle.getMode() == SplitStatusBarPolicy.DEFAULT && toggle.getMode() == 1,
+            "A fresh split helper must start enabled without an endpoint or settings write");
+        InsetsPolicy owner = fixture();
+        ActivityRecord remaining = visibleStage(owner, false);
+        owner.mDisplayContent.mCurrentFocus = home();
+        homeActive(owner, remaining);
+        owner.mDisplayContent.mCurrentFocus = remaining.mainWindow;
+
+        DisplayPolicy outerAppearance = new DisplayPolicy();
+        outerAppearance.mSystemUiControllingWindow = new WindowState();
+        Method opacity = DisplayPolicy.class.getDeclaredMethod("configureStatusBarOpacity", int.class);
+        int initialOuter = (Integer) XposedBridge.invokeHooked(opacity, outerAppearance, 1);
+        require(StatusBarStylePolicy.requested(0, initialOuter, 1),
+            "The independent outer-screen appearance path remains available before changing split mode");
+        toggle.setMode(SplitStatusBarPolicy.DISABLED);
+        require(toggle.getMode() == 0, "Disabling must update the helper's observable runtime mode");
+        nativeUnchanged(owner, "split override disabled with an ordinary focused stage");
+        unchangedDispatch(owner, new InsetsStateController(owner.mDisplayContent), new Target(),
+            "split override disabled with an ordinary focused stage");
+        require((Integer) XposedBridge.invokeHooked(opacity, outerAppearance, 1) == initialOuter
+                && StatusBarStylePolicy.height(126, 2.5f) == 90,
+            "Disabling split status must not disable outer-screen semi-transparent/90px appearance");
+
+        owner.mDisplayContent.mCurrentFocus = home();
+        int enumerations = owner.mDisplayContent.enumerationCalls;
+        nativeUnchanged(owner, "split override disabled with a proven app-and-Home scene");
+        unchangedDispatch(owner, new InsetsStateController(owner.mDisplayContent), new Target(),
+            "split override disabled with a proven app-and-Home scene");
+        require(owner.mDisplayContent.enumerationCalls == enumerations,
+            "Disabled split policy must return to native behavior before scanning historical activities");
+        for (int invalid : new int[]{-1, 2, Integer.MIN_VALUE, Integer.MAX_VALUE}) {
+            try {
+                toggle.setMode(invalid);
+                throw new AssertionError("Invalid runtime split mode must be rejected");
+            } catch (IllegalArgumentException expected) {
+                require(toggle.getMode() == 0, "Invalid mode must retain the previous disabled state");
+            }
+        }
+        toggle.setMode(SplitStatusBarPolicy.ENABLED);
+        homeActive(owner, remaining);
+        owner.mDisplayContent.mCurrentFocus = remaining.mainWindow;
+        homeActive(owner, remaining);
+        require(toggle.getMode() == 1, "Re-enabling must restore both ordinary and Home-backed split paths");
     }
 
     private static void preflight(String fixtureRoot) throws Exception {

@@ -11,7 +11,11 @@ public class PolicyRegression {
     }
     public static void main(String[] args) throws Exception {
         check(UnlockPolicy.supports("lhasa", 37, "OS4.0.26.0.XPNCNXM"), "inspected build must match");
-        check(!UnlockPolicy.supports("lhasa", 37, "OS4.0.21.0.XPNCNXM"), "previous OTA must stay untouched");
+        check(UnlockPolicy.supports("lhasa", 37, "OS4.0.21.0.XPNCNXM"), "21 must match");
+        check(UnlockPolicy.supports("lhasa", 37, "OS4.0.22.0.XPNCNXM"), "22 must match");
+        for (String build : new String[]{null, "", "OS4.0.23.0.XPNCNXM", "OS4.0.26.1.XPNCNXM", "OS4.0.26.0.XPNMIXM", "4.0.26"}) {
+            check(!UnlockPolicy.supports("lhasa", 37, build), "uninspected exact build must stay untouched: " + build);
+        }
         check(!UnlockPolicy.supports("lhasa", 36, "OS4.0.26.0.XPNCNXM"), "different Android must stay untouched");
         check(!UnlockPolicy.supports("other", 37, "OS4.0.26.0.XPNCNXM"), "different device must stay untouched");
         for (String name : new String[]{"android", "com.android.systemui", "com.miui.home", "com.android.permissioncontroller", "com.google.android.permissioncontroller"}) {
@@ -53,7 +57,8 @@ public class PolicyRegression {
                 activities++;
             }
         }
-        check(packages == 19 && activities == 3, "OS4.0.26.0 reference firmware rule counts changed");
+        check((packages == 19 && activities == 3) || (packages == 61 && activities == 21),
+                "Inspected firmware rule counts changed");
         System.out.println("PASS " + checks + " checks; " + packages + " package rules and " + activities + " activity rules covered.");
         System.out.println("Offline policy regression only; does not establish Android hook activation or app rendering.");
     }

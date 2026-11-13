@@ -16,16 +16,18 @@ final class SplitStatusBarController {
     final Method controlTarget, barVisibility, hideTypes, targetInsets, dispatchTarget;
     final XC_MethodHook controlCallback, visibilityCallback, hideCallback, insetsCallback, dispatchCallback;
     private final Field display, policy, showingTarget, fakeStatusTarget, barOwner, barId,
-            focus, atm, attrs, controllerDisplay;
+            focus, atm, attrs, controllerDisplay, policyStateController;
     private final Method displayId, configuration, screenType, displayBounds, keyguard,
             splitActive, windowMode, windowDisplay, windowTask, taskBounds,
             sourceSize, sourceAt, sourceType, sourceFrame, sourceVisible, sourceIsVisible, addSource,
-            displayInsets, enumerateActivities, activityVisible, activityRequested, mainWindow;
+            displayInsets, enumerateActivities, activityVisible, activityRequested, mainWindow,
+            defaultDisplay, updateAttributes, notifyInsets;
     private final Constructor<?> copyState, copySource;
     private final Class<?> stateClass, windowClass;
     private boolean loggedFailure;
     private boolean loggedRouting;
     private boolean loggedHomeScene;
+    private volatile boolean enabled = true;
 
     SplitStatusBarController(ClassLoader loader) throws Exception {
         Class<?> insets = Class.forName("com.android.server.wm.InsetsPolicy", false, loader);
@@ -39,6 +41,7 @@ final class SplitStatusBarController {
         Class<?> stateController = Class.forName("com.android.server.wm.InsetsStateController", false, loader);
         Class<?> task = Class.forName("com.android.server.wm.Task", false, loader);
         Class<?> record = Class.forName("com.android.server.wm.ActivityRecord", false, loader);
+        Class<?> root = Class.forName("com.android.server.wm.RootWindowContainer", false, loader);
         stateClass = Class.forName("android.view.InsetsState", false, loader);
         Class<?> source = Class.forName("android.view.InsetsSource", false, loader);
 
@@ -63,6 +66,7 @@ final class SplitStatusBarController {
         showingTarget = field(insets, "mShowingPermanentControlTarget", target);
         fakeStatusTarget = field(insets, "mFakeStatusControlTarget", target);
         controllerDisplay = field(stateController, "mDisplayContent", dc);
+        policyStateController = field(insets, "mStateController", stateController);
         barOwner = field(bar, "this$0", insets);
         barId = field(bar, "mId", int.class);
         focus = field(dc, "mCurrentFocus", window);
@@ -73,6 +77,9 @@ final class SplitStatusBarController {
         screenType = method(Configuration.class, "getScreenType", int.class);
         displayBounds = inheritedMethod(dc, "getBounds", Rect.class);
         displayInsets = inheritedMethod(dc, "getInsetsPolicy", insets);
+        defaultDisplay = method(root, "getDefaultDisplay", dc);
+        updateAttributes = method(dp, "updateSystemBarAttributes", void.class);
+        notifyInsets = method(stateController, "notifyInsetsChanged", void.class);
         enumerateActivities = inheritedMethod(dc, "forAllActivities", void.class, Consumer.class);
         activityVisible = inheritedMethod(record, "isVisible", boolean.class);
         activityRequested = inheritedMethod(record, "isVisibleRequested", boolean.class);
@@ -221,8 +228,28 @@ final class SplitStatusBarController {
         return params == null || params.type != WindowManager.LayoutParams.TYPE_BASE_APPLICATION;
     }
 
+    int getMode() { return enabled ? SplitStatusBarPolicy.ENABLED : SplitStatusBarPolicy.DISABLED; }
+
+    void setMode(int mode) {
+        if (!SplitStatusBarPolicy.valid(mode)) throw new IllegalArgumentException("invalid split mode");
+        enabled = mode == SplitStatusBarPolicy.ENABLED;
+    }
+
+    /** Called under the WM global lock after the preference has been saved. */
+    void refresh(Object root) throws Exception {
+        Object dc = root == null ? null : defaultDisplay.invoke(root);
+        Object owner = dc == null ? null : displayInsets.invoke(dc);
+        Object dp = owner == null ? null : policy.get(owner);
+        Object controller = owner == null ? null : policyStateController.get(owner);
+        if (dp == null || controller == null) throw new IllegalStateException("display not ready");
+        // Re-run the native policy on both transitions. In particular, disabling
+        // must release our permanent controller and resend native app insets.
+        updateAttributes.invoke(dp);
+        notifyInsets.invoke(controller);
+    }
+
     private Object splitDisplay(Object owner) throws Exception {
-        if (owner == null) return null;
+        if (!enabled || owner == null) return null;
         Object dc = display.get(owner);
         Object dp = policy.get(owner);
         if (dc == null || dp == null || (Integer) displayId.invoke(dc) != 0

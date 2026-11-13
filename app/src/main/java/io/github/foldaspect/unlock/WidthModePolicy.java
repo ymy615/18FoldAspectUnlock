@@ -5,6 +5,7 @@ final class WidthModePolicy {
     static final int NARROW = 0;
     static final int WIDE = 1;
     static final float LEGACY_RATIO = 16f / 9f;
+    static final float NARROW_RATIO = 20f / 9f;
     static final String SETTING = "fold_aspect_unlock_width_mode";
     static final String ACTION = "io.github.foldaspect.unlock.WIDTH_CONTROL";
     static final String PERMISSION = "io.github.foldaspect.unlock.permission.WIDTH_CONTROL";

@@ -6,6 +6,7 @@ public final class InsetsPolicy {
     public DisplayPolicy mPolicy;
     public InsetsControlTarget mShowingPermanentControlTarget;
     public InsetsControlTarget mFakeStatusControlTarget;
+    public InsetsStateController mStateController;
     private InsetsControlTarget getStatusControlTargetInner(WindowState window, boolean fake) { return null; }
     void hideSystemBars(int types) {}
     private final class BarWindow {

@@ -42,6 +42,8 @@ public final class HookRegression {
         String scenario = args[0];
         switch (scenario) {
             case "exact-install": exactInstall(); break;
+            case "exact-install-21": Build.VERSION.INCREMENTAL = "OS4.0.21.0.XPNCNXM"; exactInstall(); break;
+            case "exact-install-22": Build.VERSION.INCREMENTAL = "OS4.0.22.0.XPNCNXM"; exactInstall(); break;
             case "environment-guards": environmentGuards(); break;
             case "missing-class": rejectedTargets(args[1], "missing-class"); break;
             case "missing-method": rejectedTargets(args[1], "missing-method"); break;
@@ -85,7 +87,10 @@ public final class HookRegression {
             method(DisplayPolicy.class, "configureStatusBarOpacity", int.class),
             method(DisplayPolicy.class, "updateLightNavigationBarLw", int.class, WindowState.class),
             method(AppCompatLetterboxPolicy.class, "getLetterboxDetails"),
-            method(MiuiSizeCompatService.class, "getWideFoldDefaultRatio", ActivityRecord.class),
+            ("OS4.0.21.0.XPNCNXM".equals(Build.VERSION.INCREMENTAL)
+                    || "OS4.0.22.0.XPNCNXM".equals(Build.VERSION.INCREMENTAL))
+                ? method(MiuiSizeCompatService.class, "getAspectRatioByPackage", String.class, int.class)
+                : method(MiuiSizeCompatService.class, "getWideFoldDefaultRatio", ActivityRecord.class),
             method(BoundsCompatUtils.class, "getGlobalScaleByName", String.class, int.class, Rect.class, boolean.class, float.class),
             method(MiuiSizeCompatService.class, "onSystemReady", ActivityTaskManagerService.class),
             method(InsetsPolicy.class, "getStatusControlTargetInner", WindowState.class, boolean.class),
@@ -114,7 +119,7 @@ public final class HookRegression {
     }
 
     private static void environmentGuards() throws Exception {
-        Build.VERSION.INCREMENTAL = "OS4.0.22.0.XPNCNXM";
+        Build.VERSION.INCREMENTAL = "OS4.0.23.0.XPNCNXM";
         install();
         Build.VERSION.INCREMENTAL = TARGET_BUILD;
         Build.DEVICE = "different_device";

@@ -4,10 +4,21 @@ package io.github.foldaspect.unlock;
 public final class UnlockPolicy {
     public static final String TARGET_DEVICE = "lhasa";
     public static final String TARGET_BUILD = "OS4.0.26.0.XPNCNXM";
+    public static final String BUILD_21 = "OS4.0.21.0.XPNCNXM";
+    public static final String BUILD_22 = "OS4.0.22.0.XPNCNXM";
     private UnlockPolicy() {}
 
     public static boolean supports(String device, int sdk, String incremental) {
-        return TARGET_DEVICE.equals(device) && sdk == 37 && TARGET_BUILD.equals(incremental);
+        return TARGET_DEVICE.equals(device) && sdk == 37
+                && (BUILD_21.equals(incremental) || BUILD_22.equals(incremental) || TARGET_BUILD.equals(incremental));
+    }
+
+    public static String supportedBuildsText() {
+        return BUILD_21 + " / " + BUILD_22 + " / " + TARGET_BUILD;
+    }
+
+    static boolean usesLegacyWidthApi(String build) {
+        return BUILD_21.equals(build) || BUILD_22.equals(build);
     }
 
     public static boolean mayUnlockPackage(String name) {

@@ -10,6 +10,7 @@ import android.content.res.Configuration;
 import android.graphics.Rect;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Build;
 import android.provider.Settings;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -26,6 +27,8 @@ import de.robv.android.xposed.XposedBridge;
 final class WidthModeController {
     final Method ratioTarget, scaleTarget, readyTarget;
     final XC_MethodHook ratioCallback, scaleCallback, readyCallback;
+    final boolean legacyRatioApi;
+    private final Method gameRatio;
     private final Field contextField, handlerField, atmsField, globalLock, rootField,
             controllerField, infoField, processField, cachedScale;
     private final Method outerDisplay, globalConfiguration, displayId, windowingMode,
@@ -35,8 +38,11 @@ final class WidthModeController {
     private volatile int mode = WidthModePolicy.NARROW;
     private volatile Object service;
     private boolean registered;
+    private final SplitStatusBarController split;
 
-    WidthModeController(ClassLoader loader) throws Exception {
+    WidthModeController(ClassLoader loader, SplitStatusBarController split) throws Exception {
+        if (split == null) throw new IllegalArgumentException("split controller required");
+        this.split = split;
         Class<?> serviceClass = cls(loader, "com.android.server.wm.MiuiSizeCompatService");
         Class<?> utils = cls(loader, "com.android.server.wm.BoundsCompatUtils");
         Class<?> atms = cls(loader, "com.android.server.wm.ActivityTaskManagerService");
@@ -46,7 +52,12 @@ final class WidthModeController {
         Class<?> process = cls(loader, "com.android.server.wm.WindowProcessController");
         Class<?> task = cls(loader, "com.android.server.wm.Task");
         Class<?> stub = cls(loader, "com.android.server.wm.ActivityTaskManagerServiceStub");
-        ratioTarget = method(serviceClass, "getWideFoldDefaultRatio", float.class, record);
+        legacyRatioApi = UnlockPolicy.usesLegacyWidthApi(Build.VERSION.INCREMENTAL);
+        ratioTarget = legacyRatioApi
+                ? method(serviceClass, "getAspectRatioByPackage", float.class, String.class, int.class)
+                : method(serviceClass, "getWideFoldDefaultRatio", float.class, record);
+        gameRatio = legacyRatioApi
+                ? method(serviceClass, "getGameAspectRatioByPackage", float.class, String.class) : null;
         scaleTarget = method(utils, "getGlobalScaleByName", float.class,
                 String.class, int.class, Rect.class, boolean.class, float.class);
         readyTarget = method(serviceClass, "onSystemReady", void.class, atms);
@@ -81,8 +92,22 @@ final class WidthModeController {
 
         ratioCallback = new XC_MethodHook() {
             @Override protected void afterHookedMethod(MethodHookParam p) {
-                if (p.hasThrowable() || mode != WidthModePolicy.WIDE || !(p.getResult() instanceof Float)) return;
+                if (p.hasThrowable() || !(p.getResult() instanceof Float)) return;
                 try {
+                    if (legacyRatioApi) {
+                        String name = (String) p.args[0];
+                        // 21/22 have no default-ratio helper: their final package query returns
+                        // the saved ordinary 16:9 ratio. Leave disabled/custom/game ratios
+                        // and the on-disk per-app choice intact.
+                        if (isOuterPortrait() && UnlockPolicy.mayUnlockPackage(name)
+                                && Math.abs((Float) p.getResult() - WidthModePolicy.LEGACY_RATIO) < 0.0001f
+                                && (Float) gameRatio.invoke(p.thisObject, name) <= 0f) {
+                            p.setResult(mode == WidthModePolicy.WIDE
+                                    ? WidthModePolicy.LEGACY_RATIO : WidthModePolicy.NARROW_RATIO);
+                        }
+                        return;
+                    }
+                    if (mode != WidthModePolicy.WIDE) return;
                     Object ar = p.args[0];
                     // Null ActivityRecord is the real process/package query path. Its
                     // native caller has already decided whether that package is enabled.
@@ -94,10 +119,29 @@ final class WidthModeController {
         };
         scaleCallback = new XC_MethodHook() {
             @Override protected void afterHookedMethod(MethodHookParam p) {
-                if (p.hasThrowable() || mode != WidthModePolicy.WIDE || !(p.getResult() instanceof Float)) return;
+                if (p.hasThrowable() || !(p.getResult() instanceof Float)) return;
                 float nativeScale = (Float) p.getResult();
                 Rect display = (Rect) p.args[2];
                 float ratio = (Float) p.args[4];
+                if (legacyRatioApi && mode == WidthModePolicy.NARROW) {
+                    try {
+                        // Match only the old ordinary fallback, so a dedicated scale,
+                        // failed native result or explicit opt-out remains authoritative.
+                        if (display != null && (Boolean) p.args[3] && isOuterPortrait()
+                                && UnlockPolicy.mayUnlockPackage((String) p.args[0])
+                                && Math.abs(ratio - WidthModePolicy.NARROW_RATIO) < 0.0001f
+                                && nativeScale > 0f
+                                && Math.abs(nativeScale - WidthModePolicy.legacyScale(
+                                        display.width(), display.height(), ratio)) < 0.0001f
+                                && (Integer) scaleMode.invoke(atmsStub.invoke(null), (String) p.args[0]) != 3) {
+                            float narrow = WidthModePolicy.legacyScale(
+                                    Math.min(1080, display.width()), display.height(), ratio);
+                            if (narrow > 0f) p.setResult(narrow);
+                        }
+                    } catch (Throwable error) { log("legacy narrow scale skipped", error); }
+                    return;
+                }
+                if (mode != WidthModePolicy.WIDE) return;
                 // This is the native ordinary-outer fallback. Dedicated game/cloud
                 // scales bypass it. Distinguish the explicit scale-mode-3 opt-out
                 // from a -1 caused by the new 1080px cap with the legacy ratio.
@@ -129,13 +173,19 @@ final class WidthModeController {
         if (context == null || handler == null || atmsField.get(owner) == null) return;
         int saved = Settings.Global.getInt(context.getContentResolver(), WidthModePolicy.SETTING, WidthModePolicy.NARROW);
         mode = WidthModePolicy.valid(saved) ? saved : WidthModePolicy.NARROW;
+        int savedSplit = Settings.Global.getInt(context.getContentResolver(),
+                SplitStatusBarPolicy.SETTING, SplitStatusBarPolicy.DEFAULT);
+        split.setMode(SplitStatusBarPolicy.valid(savedSplit) ? savedSplit : SplitStatusBarPolicy.DEFAULT);
         service = owner;
         context.registerReceiver(new BroadcastReceiver() {
             @Override public void onReceive(Context ignored, Intent intent) {
                 if (!WidthModePolicy.ACTION.equals(intent.getAction())) return;
                 try {
                     int refreshed = 0, failures = 0;
-                    if (intent.getBooleanExtra(WidthModePolicy.EXTRA_WRITE, false)) {
+                    boolean widthWrite = intent.getBooleanExtra(WidthModePolicy.EXTRA_WRITE, false);
+                    boolean splitWrite = intent.getBooleanExtra(SplitStatusBarPolicy.EXTRA_WRITE, false);
+                    if (widthWrite && splitWrite) return;
+                    if (widthWrite) {
                         int requested = intent.getIntExtra(WidthModePolicy.EXTRA_MODE, -1);
                         if (!WidthModePolicy.valid(requested)) return;
                         Object atms = atmsField.get(owner);
@@ -158,9 +208,31 @@ final class WidthModeController {
                         }
                         XposedBridge.log("[FoldAspectUnlock] width=" + (mode == WidthModePolicy.WIDE ? "wide" : "narrow")
                                 + "; refreshed=" + refreshed + "; deferred=" + failures);
+                    } else if (splitWrite) {
+                        int requested = intent.getIntExtra(SplitStatusBarPolicy.EXTRA_MODE, -1);
+                        if (!SplitStatusBarPolicy.valid(requested)) return;
+                        Object atms = atmsField.get(owner);
+                        Object lock = atms == null ? null : globalLock.get(atms);
+                        if (lock == null) return;
+                        if (requested != split.getMode() && !Settings.Global.putInt(
+                                context.getContentResolver(), SplitStatusBarPolicy.SETTING, requested)) return;
+                        synchronized (lock) {
+                            split.setMode(requested);
+                            try {
+                                split.refresh(rootField.get(atms));
+                                refreshed = 1;
+                            } catch (Exception error) {
+                                failures++;
+                                log("split refresh deferred", error);
+                            }
+                        }
+                        XposedBridge.log("[FoldAspectUnlock] splitStatusBar="
+                                + (split.getMode() == SplitStatusBarPolicy.ENABLED ? "on" : "off")
+                                + "; refreshed=" + refreshed + "; deferred=" + failures);
                     }
                     Bundle response = new Bundle();
                     response.putInt(WidthModePolicy.EXTRA_MODE, mode);
+                    response.putInt(SplitStatusBarPolicy.EXTRA_MODE, split.getMode());
                     response.putInt("refreshed", refreshed);
                     response.putInt("deferred", failures);
                     setResultExtras(response);

@@ -11,6 +11,7 @@ public final class InsetsPolicy {
     public InsetsControlTarget mShowingPermanentControlTarget = new Target();
     public InsetsControlTarget nativeControlTarget = new Target();
     public InsetsControlTarget mFakeStatusControlTarget = new Target();
+    public InsetsStateController mStateController;
     public InsetsState nativeResult = new InsetsState();
     public RuntimeException originalFailure;
     public int hiddenTypes = -1;
@@ -18,7 +19,10 @@ public final class InsetsPolicy {
     public WindowState lastInsetTarget;
     public InsetsState lastInsetInput;
 
-    public InsetsPolicy() { mDisplayContent.insetsPolicy = this; }
+    public InsetsPolicy() {
+        mDisplayContent.insetsPolicy = this;
+        mStateController = new InsetsStateController(mDisplayContent);
+    }
 
     private InsetsControlTarget getStatusControlTargetInner(WindowState focusedWin, boolean fake) {
         if (originalFailure != null) throw originalFailure;

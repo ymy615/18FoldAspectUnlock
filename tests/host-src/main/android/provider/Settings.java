@@ -9,6 +9,7 @@ public final class Settings {
             return value == null ? fallback : value;
         }
         public static boolean putInt(ContentResolver resolver, String key, int value) {
+            if (resolver.writeFailure != null) throw resolver.writeFailure;
             if (resolver.rejectWrites) return false;
             resolver.globalInts.put(key, value);
             resolver.writes++;

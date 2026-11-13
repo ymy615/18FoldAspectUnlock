@@ -11,6 +11,10 @@ public final class MiuiSizeCompatService {
     public ActivityTaskManagerService mAtms;
     public Runnable beforeApply;
     public RuntimeException readyFailure;
+    public float legacyPackageRatio = 16f / 9f;
+    public float gameRatio = -1f;
+    private float getAspectRatioByPackage(String name, int user) { return legacyPackageRatio; }
+    private float getGameAspectRatioByPackage(String name) { return gameRatio; }
 
     static float getWideFoldDefaultRatio(ActivityRecord record) { return 20f / 9f; }
     void onSystemReady(ActivityTaskManagerService atms) {
