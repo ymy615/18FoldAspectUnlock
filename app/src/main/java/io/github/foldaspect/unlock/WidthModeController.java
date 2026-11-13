@@ -39,10 +39,16 @@ final class WidthModeController {
     private volatile Object service;
     private boolean registered;
     private final SplitStatusBarController split;
+    private final InnerAspectController inner;
 
     WidthModeController(ClassLoader loader, SplitStatusBarController split) throws Exception {
+        this(loader, split, null);
+    }
+
+    WidthModeController(ClassLoader loader, SplitStatusBarController split, InnerAspectController inner) throws Exception {
         if (split == null) throw new IllegalArgumentException("split controller required");
         this.split = split;
+        this.inner = inner;
         Class<?> serviceClass = cls(loader, "com.android.server.wm.MiuiSizeCompatService");
         Class<?> utils = cls(loader, "com.android.server.wm.BoundsCompatUtils");
         Class<?> atms = cls(loader, "com.android.server.wm.ActivityTaskManagerService");
@@ -91,7 +97,11 @@ final class WidthModeController {
         scaleMode = method(stub, "getScaleMode", int.class, String.class);
 
         ratioCallback = new XC_MethodHook() {
+            @Override protected void beforeHookedMethod(MethodHookParam p) {
+                if (inner != null && legacyRatioApi) inner.beforeQuery(p);
+            }
             @Override protected void afterHookedMethod(MethodHookParam p) {
+                if (inner != null && legacyRatioApi) inner.afterQuery(p);
                 if (p.hasThrowable() || !(p.getResult() instanceof Float)) return;
                 try {
                     if (legacyRatioApi) {
@@ -162,6 +172,8 @@ final class WidthModeController {
                 if (p.hasThrowable()) return;
                 try { register(p.thisObject); }
                 catch (Throwable error) { log("width control unavailable", error); }
+                try { if (inner != null) inner.bind(p.thisObject); }
+                catch (Throwable error) { log("inner control unavailable", error); }
             }
         };
     }

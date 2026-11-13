@@ -5,6 +5,7 @@ public final class ActivityTaskManagerService {
     public boolean folded;
     public boolean portrait = true;
     public boolean splitScreen;
+    public WindowManagerService mWindowManager = new WindowManagerService();
     public boolean isInSplitScreenWindowingMode() { return splitScreen; }
     public WindowManagerGlobalLock mGlobalLock = new WindowManagerGlobalLock();
     public RootWindowContainer mRootWindowContainer = new RootWindowContainer();

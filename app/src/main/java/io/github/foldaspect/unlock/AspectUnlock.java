@@ -29,17 +29,16 @@ public final class AspectUnlock implements IXposedHookLoadPackage {
                 // All targets must exist with their exact inspected signatures before installing any hook.
                 Class<?> service = Class.forName("com.android.server.wm.MiuiSizeCompatService", false, load.classLoader);
                 Class<?> utils = Class.forName("com.android.server.wm.BoundsCompatUtils", false, load.classLoader);
-                Class<?> activityTaskManager = Class.forName("com.android.server.wm.ActivityTaskManagerService", false, load.classLoader);
                 Class<?> boundsController = Class.forName("com.android.server.wm.BoundsCompatController", false, load.classLoader);
                 Method disabled = booleanMethod(service, "isWideFoldDisabledPackage", String.class);
                 Method fullscreen = booleanMethod(service, "shouldUseFullscreenBypassInternal", String.class);
                 Method systemApp = booleanMethod(utils, "isWideFoldSystemApp", ApplicationInfo.class);
-                Method innerDisplay = booleanMethod(service, "isInnerCompatDisplay", activityTaskManager);
                 Method hideStatusBar = booleanMethod(boundsController, "hideStatusBarInSizeCompat");
                 StatusBarInsetFix statusInsets = new StatusBarInsetFix(load.classLoader);
                 StatusBarAppearance statusAppearance = new StatusBarAppearance(load.classLoader);
                 SplitStatusBarController split = new SplitStatusBarController(load.classLoader);
-                WidthModeController width = new WidthModeController(load.classLoader, split);
+                InnerAspectController inner = new InnerAspectController(load.classLoader);
+                WidthModeController width = new WidthModeController(load.classLoader, split, inner);
 
                 applied.add(XposedBridge.hookMethod(disabled, new XC_MethodHook() {
                     @Override protected void beforeHookedMethod(MethodHookParam p) {
@@ -59,10 +58,8 @@ public final class AspectUnlock implements IXposedHookLoadPackage {
                         }
                     }
                 }));
-                // The native fold configuration pass clears activity/process compat state when
-                // the inner display is ineligible. Never write the shared per-app ratio or the
-                // task's runtime-fullscreen flag: both must survive for the next outer-screen use.
-                applied.add(XposedBridge.hookMethod(innerDisplay, returnFalse()));
+                // Keep native inner-display eligibility. Globally returning false here also
+                // rejects the control-center request to enter compat on a portrait inner screen.
                 // Remove only Xiaomi's size-compat forced hiding. App-requested immersive mode
                 // and ordinary status-bar/insets policy still run without modification.
                 applied.add(XposedBridge.hookMethod(hideStatusBar, returnFalse()));
@@ -78,8 +75,12 @@ public final class AspectUnlock implements IXposedHookLoadPackage {
                 applied.add(XposedBridge.hookMethod(split.hideTypes, split.hideCallback));
                 applied.add(XposedBridge.hookMethod(split.targetInsets, split.insetsCallback));
                 applied.add(XposedBridge.hookMethod(split.dispatchTarget, split.dispatchCallback));
+                if (!inner.legacy) applied.add(XposedBridge.hookMethod(inner.queryTarget, inner.queryCallback));
+                applied.add(XposedBridge.hookMethod(inner.resolveTarget, inner.resolveCallback));
+                applied.add(XposedBridge.hookMethod(inner.persistTarget, inner.persistCallback));
                 installed = true;
-                XposedBridge.log(TAG + "ACTIVE 17/17 hooks; inner=default; outer=preserved; statusBar=semi-transparent; insets=corrected; width=selectable; splitStatusBar=selectable; build=" + Build.VERSION.INCREMENTAL);
+                XposedBridge.log(TAG + "ACTIVE " + applied.size() + "/" + applied.size()
+                        + " hooks; inner=session-fullscreen; manual=allowed; outer=preserved; statusBar=semi-transparent; insets=corrected; width=selectable; splitStatusBar=selectable; build=" + Build.VERSION.INCREMENTAL);
             } catch (Throwable failure) {
                 for (XC_MethodHook.Unhook hook : applied) {
                     try { hook.unhook(); } catch (Throwable ignored) {}

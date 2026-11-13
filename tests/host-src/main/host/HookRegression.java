@@ -48,6 +48,7 @@ public final class HookRegression {
             case "missing-class": rejectedTargets(args[1], "missing-class"); break;
             case "missing-method": rejectedTargets(args[1], "missing-method"); break;
             case "wrong-return": rejectedTargets(args[1], "wrong-return"); break;
+            case "inner-wrong-stub": rejectedTargets(args[1], "inner-wrong-stub"); break;
             case "rollback-retry": rollbackRetry(); break;
             case "fold-unfold-policy": foldUnfoldPolicy(); break;
             case "package-uid-protection": packageUidProtection(); break;
@@ -77,11 +78,10 @@ public final class HookRegression {
     private static void install() { load("android", HookRegression.class.getClassLoader()); }
 
     private static Set<Member> expectedMethods() throws Exception {
-        return new LinkedHashSet<Member>(Arrays.<Member>asList(
+        Set<Member> expected = new LinkedHashSet<Member>(Arrays.<Member>asList(
             method(MiuiSizeCompatService.class, "isWideFoldDisabledPackage", String.class),
             method(MiuiSizeCompatService.class, "shouldUseFullscreenBypassInternal", String.class),
             method(BoundsCompatUtils.class, "isWideFoldSystemApp", ApplicationInfo.class),
-            method(MiuiSizeCompatService.class, "isInnerCompatDisplay", ActivityTaskManagerService.class),
             method(BoundsCompatController.class, "hideStatusBarInSizeCompat"),
             method(WindowState.class, "getCompatInsetsState"),
             method(DisplayPolicy.class, "configureStatusBarOpacity", int.class),
@@ -98,8 +98,15 @@ public final class HookRegression {
             method(InsetsPolicy.class, "hideSystemBars", int.class),
             method(InsetsPolicy.class, "enforceInsetsPolicyForTarget", WindowState.class, InsetsState.class),
             method(InsetsStateController.class, "onBarControlTargetChanged", InsetsControlTarget.class,
-                InsetsControlTarget.class, InsetsControlTarget.class, InsetsControlTarget.class)
+                InsetsControlTarget.class, InsetsControlTarget.class, InsetsControlTarget.class),
+            method(BoundsCompatController.class, "resolveFixedAspectRatioIfNeeded", android.content.pm.ActivityInfo.class, com.android.server.wm.Task.class),
+            method(MiuiSizeCompatService.class, "persistWideFoldRatioIfNeededLocked", ActivityRecord.class, boolean.class)
         ));
+        if (!"OS4.0.21.0.XPNCNXM".equals(Build.VERSION.INCREMENTAL)
+                && !"OS4.0.22.0.XPNCNXM".equals(Build.VERSION.INCREMENTAL)) {
+            expected.add(method(MiuiSizeCompatService.class, "getAspectRatio", String.class, int.class, ActivityRecord.class));
+        }
+        return expected;
     }
 
     private static void requireExactMethods() throws Exception {
@@ -200,7 +207,8 @@ public final class HookRegression {
         Method outer = method(MiuiSizeCompatService.class, "isOuterCompatDisplay",
             ActivityTaskManagerService.class);
         Method save = method(MiuiSizeCompatService.class, "writeWideFoldSetting");
-        require(!XposedBridge.hookedMethods().contains(outer)
+        require(!XposedBridge.hookedMethods().contains(inner)
+                && !XposedBridge.hookedMethods().contains(outer)
                 && !XposedBridge.hookedMethods().contains(save),
             "The outer-display decision and ratio persistence must remain unhooked");
         ActivityTaskManagerService atms = new ActivityTaskManagerService();
@@ -221,21 +229,29 @@ public final class HookRegression {
             require(runtimeFullscreen.activityRatio == 0.0f && runtimeFullscreen.processRatio == 0.0f,
                 "An existing runtime-fullscreen task must remain fullscreen on the outer screen");
             atms.folded = false;
-            // Verify the real callback rejects the inner display, rather than relying on the model.
-            require(Boolean.FALSE.equals(XposedBridge.invokeHooked(inner, null, atms)),
-                "The real inner-display before callback must return false");
+            // Native portrait eligibility must remain reachable for control-center switching.
+            require(Boolean.TRUE.equals(XposedBridge.invokeHooked(inner, null, atms)),
+                "An unfolded portrait display must retain native compat eligibility");
             simulatedConfigurationPass(atms, service, letterboxed, inner, outer);
             simulatedConfigurationPass(atms, service, runtimeFullscreen, inner, outer);
+            require(letterboxed.activityRatio == saved.get("0#com.example.reader")
+                    && letterboxed.processRatio == letterboxed.activityRatio,
+                "Unfolding must no longer suppress a native eligible portrait ratio");
+            atms.portrait = false;
+            require(Boolean.FALSE.equals(XposedBridge.invokeHooked(inner, null, atms)),
+                "Landscape inner-display rejection must remain native");
+            simulatedConfigurationPass(atms, service, letterboxed, inner, outer);
             require(letterboxed.activityRatio == 0.0f && letterboxed.processRatio == 0.0f,
-                "The simulated native reconfiguration must clear activity/process compat on unfold");
+                "The simulated native landscape exit must still clear compat state");
+            atms.portrait = true;
         }
         require(service.mWideFoldConfigs.equals(saved) && service.settingsWrites == 0,
             "Fold/unfold callbacks must not rewrite persisted per-user aspect ratios");
         require(!letterboxed.runtimeFullscreen && runtimeFullscreen.runtimeFullscreen,
             "Fold/unfold must preserve both values of the task runtime-fullscreen flag");
-        require(XposedBridge.originalCallCount(inner) == 0
+        require(XposedBridge.originalCallCount(inner) > 0
                 && XposedBridge.originalCallCount(outer) > 0,
-            "Only the inner gate may be short-circuited; the outer original must still execute");
+            "Both display decisions must execute their originals");
     }
 
     private static final class SimulatedTask {

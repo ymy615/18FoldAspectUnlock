@@ -24,6 +24,7 @@ $fixtureClasses = Join-Path $classes 'fixtures'
 New-Item -ItemType Directory -Path $hostClasses, $fixtureClasses -Force | Out-Null
 $hostSources = @(
     (Join-Path $PSScriptRoot 'app\src\main\java\io\github\foldaspect\unlock\AspectUnlock.java'),
+    (Join-Path $PSScriptRoot 'app\src\main\java\io\github\foldaspect\unlock\InnerAspectController.java'),
     (Join-Path $PSScriptRoot 'app\src\main\java\io\github\foldaspect\unlock\UnlockPolicy.java'),
     (Join-Path $PSScriptRoot 'app\src\main\java\io\github\foldaspect\unlock\StatusBarInsetFix.java'),
     (Join-Path $PSScriptRoot 'app\src\main\java\io\github\foldaspect\unlock\StatusBarAppearance.java'),
@@ -42,7 +43,7 @@ $utf8 = New-Object System.Text.UTF8Encoding($false)
 & (Join-Path $JavaRoot 'bin\javac.exe') -encoding UTF-8 -d $hostClasses "@$sourceList"
 if ($LASTEXITCODE -ne 0) { throw 'Host hook test compilation failed.' }
 
-foreach ($fixture in @('missing-method', 'wrong-return', 'insets-wrong-field', 'split-missing-target', 'split-wrong-field', 'split-missing-dispatch', 'split-dispatch-wrong-field')) {
+foreach ($fixture in @('missing-method', 'wrong-return', 'insets-wrong-field', 'split-missing-target', 'split-wrong-field', 'split-missing-dispatch', 'split-dispatch-wrong-field', 'inner-wrong-stub')) {
     $target = Join-Path $fixtureClasses $fixture
     New-Item -ItemType Directory -Path $target -Force | Out-Null
     $fixtureSources = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot "tests\host-src\fixtures\$fixture") -Recurse -Filter '*.java' -File |
@@ -59,6 +60,7 @@ $scenarios = @(
     'missing-class',
     'missing-method',
     'wrong-return',
+    'inner-wrong-stub',
     'rollback-retry',
     'fold-unfold-policy',
     'package-uid-protection',
@@ -143,5 +145,11 @@ foreach ($scenario in $splitScenarios) {
     & (Join-Path $JavaRoot 'bin\java.exe') -cp $hostClasses io.github.foldaspect.unlock.SplitStatusBarRegression $scenario $fixtureClasses
     if ($LASTEXITCODE -ne 0) { throw "Host split status-bar regression failed: $scenario" }
 }
-Write-Host "PASS $($scenarios.Count + $insetScenarios.Count + $appearanceScenarios.Count + $styleScenarios.Count + $widthScenarios.Count + $splitEndpointScenarios.Count + $splitScenarios.Count) isolated host scenarios."
+$innerScenarios = @('inner-session-lifecycle','inner-session-users','inner-session-guards',
+    'inner-session-restoration','inner-session-failures','inner-session-legacy-21','inner-session-legacy-22')
+foreach ($scenario in $innerScenarios) {
+    & (Join-Path $JavaRoot 'bin\java.exe') -cp $hostClasses io.github.foldaspect.unlock.InnerAspectRegression $scenario
+    if ($LASTEXITCODE -ne 0) { throw "Host inner-session regression failed: $scenario" }
+}
+Write-Host "PASS $($scenarios.Count + $insetScenarios.Count + $appearanceScenarios.Count + $styleScenarios.Count + $widthScenarios.Count + $splitEndpointScenarios.Count + $splitScenarios.Count + $innerScenarios.Count) isolated host scenarios."
 Write-Host 'Host fold/status-bar models do not establish ART hook activation, native fold dispatch, app rendering or physical-device behavior.'

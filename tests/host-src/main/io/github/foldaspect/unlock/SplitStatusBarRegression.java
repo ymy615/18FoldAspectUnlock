@@ -759,8 +759,8 @@ public final class SplitStatusBarRegression {
                 "Split preflight must reject " + fixture + " before installing any core callback");
         }
         install(SplitStatusBarRegression.class.getClassLoader());
-        require(XposedBridge.installAttempts == 17 && XposedBridge.hookedMethods().size() == 17,
-            "A split preflight failure must allow a later complete seventeen-hook installation");
+        require(XposedBridge.installAttempts == 19 && XposedBridge.hookedMethods().size() == 19,
+            "A split preflight failure must allow a later complete nineteen-hook installation");
     }
 
     private static final class FrameworkLoader extends URLClassLoader {

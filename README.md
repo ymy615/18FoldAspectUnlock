@@ -1,10 +1,17 @@
 # 18FoldAspectUnlock · 画幅切换解锁
 
-为 **Xiaomi 18 Fold** 制作的 LSPosed 模块，扩展控制中心原有“画幅切换”的应用支持范围。当前版本 **0.4.1 测试版**，同一 APK 支持 OS4.0.21.0、OS4.0.22.0 和 OS4.0.26.0（均为 XPNCNXM）。
+为 **Xiaomi 18 Fold** 制作的 LSPosed 模块，扩展控制中心原有“画幅切换”的应用支持范围。当前版本 **0.4.3 测试版**，同一 APK 支持 OS4.0.21.0、OS4.0.22.0 和 OS4.0.26.0（均为 XPNCNXM）。
 
-[v0.4.1 发布页与 APK](https://github.com/ymy615/18FoldAspectUnlock/releases/tag/v0.4.1) · [全部已发布版本](https://github.com/ymy615/18FoldAspectUnlock/releases)
+[v0.4.3 发布页与 APK](https://github.com/ymy615/18FoldAspectUnlock/releases/tag/v0.4.3) · [全部已发布版本](https://github.com/ymy615/18FoldAspectUnlock/releases)
 
-APK 位于仓库首页右侧 **Releases → v0.4.1 → Assets**，下载 `FoldAspectUnlock-0.4.1.apk`。相同签名的旧版可以直接覆盖升级，升级后完整重启手机。
+APK 位于仓库首页右侧 **Releases → v0.4.3 → Assets**，下载 `FoldAspectUnlock-0.4.3.apk`。相同签名的旧版可以直接覆盖升级，升级后完整重启手机。
+
+## 0.4.3 内屏画幅修复（测试版）
+
+- 展开内屏时普通应用仍先全屏，但允许之后从控制中心手动开启画幅；原生内屏资格判断不再被统一否决。
+- 内屏选择按用户和应用临时保存，仅在本次展开期间生效，不写外屏的画幅配置文件。折回时恢复任务原有的全屏标记并刷新配置，再次展开重新从全屏开始。
+- 独立游戏比例、固定横屏、分屏、小窗、桌面与锁屏仍按原生场景限制处理；本修复不承诺所有页面均支持。
+- 外屏宽窄开关只控制外屏，内屏手动画幅保留系统的默认/特殊页面比例。APK 为 `dist/FoldAspectUnlock-0.4.3.apk`，升级后需要完整重启。中间原生验证包 0.4.2 已由本版替代。
 
 ## 0.4.1 图标
 
@@ -43,7 +50,7 @@ APK 位于仓库首页右侧 **Releases → v0.4.1 → Assets**，下载 `FoldAs
 
 ## 保留的功能
 
-- **展开恢复默认全屏**：内屏展开期间暂停普通应用的画幅模式。外屏画幅选择保留，折回后自动恢复；不写入“永久关闭画幅”的设置。
+- **展开先全屏，之后可手动开启**：允许系统认可的内屏竖屏画幅场景；内屏选择仅在本次展开有效，折回恢复外屏原有选择。
 - **画幅模式保留状态栏**：移除画幅模式额外施加的顶部状态栏隐藏。视频、游戏等应用自身请求的沉浸式全屏保持原有行为。
 - **更浅底色和白色图标**：外屏普通画幅模式使用 20% 不透明黑色状态栏底色，改善黑边上的文字对比度；退出画幅模式恢复应用原有样式。
 - **紧凑状态栏**：外屏正向竖屏画幅模式将实际状态栏目标高度设为 **90 像素**，保留图标大小及大字体所需的最小空间。
@@ -67,14 +74,15 @@ APK 位于仓库首页右侧 **Releases → v0.4.1 → Assets**，下载 `FoldAs
 2. 打开 LSPosed，在模块列表中启用 **画幅切换解锁**。
 3. 作用域勾选 **系统框架（android）** 和 **系统界面（com.android.systemui）**，不需要逐个勾选普通应用。旧版升级也需补勾选系统界面。
 4. **完整重启手机**。
-5. 在外屏打开应用，保持竖屏全屏，从控制中心点击原有的 **画幅切换**。展开内屏会恢复默认全屏，折回会恢复之前的外屏选择。
+5. 在内屏或外屏打开应用，保持系统允许的竖屏全屏场景，从控制中心点击原有的 **画幅切换**。展开先全屏，之后允许手动开启；折回恢复外屏选择。
 6. 需要调整宽度时，打开模块主页，切换 **使用旧版宽版**。第一次启用模块需要重启，此后宽窄选择无需每次整机重启。
 7. 在模块主页切换 **内屏左右分屏显示状态栏**，默认开启。首次升级至 0.4.0 需要完整重启，此后切换会即时刷新；原生刷新失败时会提示重新打开窗口。
 
 模块启动页提供版本检查与使用说明。“系统版本匹配”不代表 Hook 已激活；可在 LSPosed 日志中检查：
 
 ```text
-[FoldAspectUnlock] ACTIVE 17/17 hooks; inner=default; outer=preserved; statusBar=semi-transparent; insets=corrected; width=selectable; splitStatusBar=selectable; build=OS4.0.26.0.XPNCNXM
+[FoldAspectUnlock] ACTIVE 19/19 hooks; inner=session-fullscreen; manual=allowed; outer=preserved; statusBar=semi-transparent; insets=corrected; width=selectable; splitStatusBar=selectable; build=OS4.0.26.0.XPNCNXM
+[FoldAspectUnlock] INNER READY; unfold=fullscreen; manual=allowed; outer=preserved
 [FoldAspectUnlock] WIDTH READY; mode=narrow
 [FoldAspectUnlock] UI ACTIVE 9/9 hooks; height=90px; scrim=20%
 ```
@@ -88,7 +96,6 @@ APK 位于仓库首页右侧 **Releases → v0.4.1 → Assets**，下载 `FoldAs
 | `MiuiSizeCompatService.isWideFoldDisabledPackage(String)` | 解除应用包名禁用限制 |
 | `MiuiSizeCompatService.shouldUseFullscreenBypassInternal(String)` | 解除普通应用页面的强制全屏规则 |
 | `BoundsCompatUtils.isWideFoldSystemApp(ApplicationInfo)` | 放行普通预装应用，保留关键系统壳与特权 UID |
-| `MiuiSizeCompatService.isInnerCompatDisplay(ActivityTaskManagerService)` | 内屏使用默认画幅，沿用系统折叠配置更新与旧缩放状态清理 |
 | `BoundsCompatController.hideStatusBarInSizeCompat()` | 去除画幅模式单独施加的状态栏强制隐藏 |
 | `WindowState.getCompatInsetsState()` | 仅补偿符合条件的主窗口状态栏边距，保留摄像头及其他系统栏数据 |
 | `DisplayPolicy.configureStatusBarOpacity(int)` | 外屏画幅状态栏选择原生半透明模式 |
@@ -103,7 +110,9 @@ APK 位于仓库首页右侧 **Releases → v0.4.1 → Assets**，下载 `FoldAs
 | `InsetsPolicy.enforceInsetsPolicyForTarget(WindowState, InsetsState)` | 为普通左右分屏应用补回被剥除的原生状态栏来源 |
 | `InsetsStateController.onBarControlTargetChanged(...)` | 在最终控制派发处使用常显状态栏目标，清理临时状态栏目标，保留导航栏控制参数 |
 
-十七处方法及相关成员的签名全部匹配后才安装核心 Hook；安装失败会撤回本次已经安装的 Hook。宽度选择存放在模块独立设置项中，切换它不写每个应用的画幅记录或任务全屏标记。
+内屏临时选择另外作用于 `MiuiSizeCompatService.getAspectRatio(String, int, ActivityRecord)`（26；21/22 共用既有包级比例回调）、`BoundsCompatController.resolveFixedAspectRatioIfNeeded(ActivityInfo, Task)` 与 `MiuiSizeCompatService.persistWideFoldRatioIfNeededLocked(ActivityRecord, boolean)`；通过原生折叠监听清除本次展开选择并恢复任务配置。
+
+26 上十九处、21/22 上十八处方法及相关成员的签名全部匹配后才安装核心 Hook；安装失败会撤回本次已经安装的 Hook。21/22 共用已安装的旧版比例回调，不重复 Hook 同一方法。内外屏的准入判定保留原始实现；内屏临时选择与外屏持久化选择分开，折回时恢复任务原有全屏标记并重新计算显示配置。
 
 系统界面另外预检并安装九个绘制相关 Hook，只响应系统框架发出的当前画幅场景标记，调整状态栏窗口、图标容器和背景色；不进入普通应用进程。退出场景恢复原高度和底色。未勾选系统界面时，画幅及半透明状态栏基础功能仍可工作，但没有 90 像素高度和 20% 底色调整。
 
@@ -112,13 +121,15 @@ APK 位于仓库首页右侧 **Releases → v0.4.1 → Assets**，下载 `FoldAs
 - 保留系统权限、锁屏、桌面/最近任务、助手/梦境、主显示屏、竖屏和全屏窗口条件。
 - 固定横屏、分屏及已有独立游戏比例配置的画幅仍受系统原有规则约束；内屏左右分屏在对应开关开启时额外保留状态栏。
 - 窄版沿用系统特例，26 上微信小程序仍为原生 16:9；21/22 中硬编码的特殊页面比例仍由固件决定。专用游戏、自定义比例和独立缩放配置不强行替换。
-- 内屏展开期间不提供普通画幅切换；若需在内屏手动开启画幅，此版本不适用。应用自有固定比例与独立游戏比例不在本次自动恢复范围内。
+- 内屏仅恢复原生竖屏画幅资格，不强制应用请求横向配置的页面进入兼容模式；应用自有固定比例与独立游戏比例仍由系统单独管理。
 - **解除限制不代表所有应用都能正确显示。** 相机预览、扫码和其他特殊页面需要实际测试。
 - 顶部留白修正限定外屏竖屏全屏的普通应用主窗口；分屏、游戏独立缩放、复杂系统栏边界数据和应用自己绘制的留白不强行修改。
 - 紧凑模式保留真实摄像头安全区及水平方向的挖孔避让。部分应用同时使用摄像头安全边距，因此仍可能预留约 126 像素；不会通过伪造挖孔尺寸强行挤入这些区域。
 - 不修改系统文件、屏幕全局分辨率或其他应用 APK。
 
 ## 验证情况
+
+0.4.3：60 个独立主机回归场景通过，三个固件分支各 172 项反射接口核对通过，26 固件 64 项策略检查及编译、签名、对齐、覆盖安装哈希检查通过。已确认修复前微信在内屏竖屏全屏窗口下的原生切换请求返回 UNSUPPORTED。新会话逻辑尚待完整重启后核对微信的可见画幅，以及真实折回/再展开行为；21/22 无真机结果。
 
 0.4.0：21、22、26 各分支所需的反射接口与提取固件逐项核对通过；22 的 system/system_ext 分区及所有操作块校验通过，SystemUI APK 与 21 完全一致。52 个独立主机回归场景及 26 固件 64 项策略检查通过，覆盖三个版本安装分支、旧版比例适配、开关默认值、关闭恢复、持久化及与宽度设置的独立性。签名、对齐和覆盖安装通过。接口核对与主机模型不能代替三个系统版本的手机实测；本次仅有 26 真机可用，21/22 尚待设备验证。
 
@@ -165,7 +176,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
 
 如果 SDK 平台目录名为 `android-37`，将 `-Platform` 改为该名称。首次构建会从发布者站点下载编译用 Xposed API 82，并校验固定 SHA-256。无需安装 Gradle。
 
-- APK 输出到 `dist/FoldAspectUnlock-0.4.1.apk`，同时生成 `.sha256` 文件。
+- APK 输出到 `dist/FoldAspectUnlock-0.4.3.apk`，同时生成 `.sha256` 文件。
 - 首次构建在 `.local/` 生成本地签名密钥。请保留密钥以便后续更新，**不要提交或分享**。
 - 自行构建的签名与 Releases 中的签名通常不同，不能直接覆盖另一签名的安装包。
 - Xposed API 仅用于编译，不会打包进 APK；来源和许可证见 [libs/SOURCE.txt](libs/SOURCE.txt)。
